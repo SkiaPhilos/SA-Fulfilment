@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { UserSession } from '../../lib/api';
 import { ShipAsaanLogo } from '../brand/ShipAsaanLogo';
 import {
-  Boxes,
   Warehouse,
   ClipboardList,
   Users,
@@ -99,8 +98,7 @@ export function AppLayout({ user, currentTab, onSelectTab, onLogout, children }:
 
   const systemItems = [
     { id: 'foundation', label: 'System Infrastructure', icon: Layers, desc: 'Cache, database & health' },
-    { id: 'audit', label: 'Audit Trail', icon: Activity, desc: 'Authoritative transaction ledger' },
-    { id: 'design-system', label: 'Design System & UI Kit', icon: Boxes, desc: 'Design standards' }
+    { id: 'audit', label: 'Audit Trail', icon: Activity, desc: 'Authoritative transaction ledger' }
   ];
 
   const getBreadcrumbTitle = () => {
@@ -125,8 +123,6 @@ export function AppLayout({ user, currentTab, onSelectTab, onLogout, children }:
         return 'System Infrastructure & Storage Engine';
       case 'audit':
         return 'Immutable Audit Ledger';
-      case 'design-system':
-        return 'Visual Language & UI Tokens';
       default:
         return 'Operations Dashboard';
     }

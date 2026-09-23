@@ -17,7 +17,7 @@ import { logAudit } from './audit.js';
 
 export async function bootstrapSystem(): Promise<void> {
   const adminEmail = (process.env.ADMIN_EMAIL || 'admin@shipasaan.com').trim().toLowerCase();
-  const adminPassword = process.env.ADMIN_PASSWORD || 'Admin123!';
+  const adminPassword = process.env.ADMIN_PASSWORD || 'AdminPass@2026';
 
   await withTransaction(async (db) => {
     // 1. Sync System Permissions
@@ -200,30 +200,38 @@ export async function bootstrapSystem(): Promise<void> {
       existingAdmin.role_id = SYSTEM_ROLE_ADMIN;
     }
 
-    // Also support operator email from environment or applet metadata
-    const operatorEmail = 'isb.rwp.1.pstofficer@gmail.com';
-    let operatorUser = db.users.find(u => u.email === operatorEmail);
-    if (!operatorUser) {
-      const opId = generateId('usr_admin');
-      operatorUser = {
-        id: opId,
-        email: operatorEmail,
-        password_hash: hash,
-        password_salt: salt,
-        name: 'Operations Officer',
-        phone: '+92 300 0000001',
-        role_id: SYSTEM_ROLE_ADMIN,
-        account_type: 'staff',
-        status: 'active',
-        created_at: now,
-        updated_at: now
-      };
-      db.users.push(operatorUser);
-    } else {
-      operatorUser.password_hash = hash;
-      operatorUser.password_salt = salt;
-      operatorUser.status = 'active';
-      operatorUser.role_id = SYSTEM_ROLE_ADMIN;
+    // Also support operator and admin emails from environment or applet metadata
+    const userEmails = [
+      'islamabadpindistation@gmail.com',
+      'isb.rwp.1.pstofficer@gmail.com',
+      'admin@shipasaan.pk',
+      'admin@shipasaan.com'
+    ];
+
+    for (const email of userEmails) {
+      let u = db.users.find(x => x.email === email);
+      if (!u) {
+        const opId = generateId('usr_admin');
+        u = {
+          id: opId,
+          email,
+          password_hash: hash,
+          password_salt: salt,
+          name: email.startsWith('admin') ? 'System Administrator' : 'Operations Officer',
+          phone: '+92 300 0000001',
+          role_id: SYSTEM_ROLE_ADMIN,
+          account_type: 'staff',
+          status: 'active',
+          created_at: now,
+          updated_at: now
+        };
+        db.users.push(u);
+      } else {
+        u.password_hash = hash;
+        u.password_salt = salt;
+        u.status = 'active';
+        u.role_id = SYSTEM_ROLE_ADMIN;
+      }
     }
 
     // 5. Ensure Admin has an employee profile

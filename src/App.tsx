@@ -13,7 +13,6 @@ import { InventoryManagementView } from './components/inventory/InventoryManagem
 import { FulfillmentOrderListView } from './components/orders/FulfillmentOrderListView';
 import { DispatchDashboardView } from './components/dispatch/DispatchDashboardView';
 import { SystemFoundationView } from './components/SystemFoundationView';
-import { DesignSystemShowcase } from './components/DesignSystemShowcase';
 
 export default function App() {
   const [user, setUser] = useState<UserSession | null>(null);
@@ -119,7 +118,6 @@ export default function App() {
       {currentTab === 'roles' && <RoleManagementView user={user} />}
       {currentTab === 'foundation' && <SystemFoundationView user={user} />}
       {currentTab === 'audit' && <SystemFoundationView user={user} />}
-      {currentTab === 'design-system' && <DesignSystemShowcase />}
     </AppLayout>
   );
 }

@@ -15,7 +15,9 @@ import {
   User,
   Phone,
   MapPin,
-  FileText
+  FileText,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import logisticsHubImg from '../assets/images/logistics_fulfillment_hub_1790131345824.jpg';
 
@@ -29,6 +31,7 @@ export function AuthScreen({ onSuccess }: AuthScreenProps) {
   // Login states
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [otp, setOtp] = useState('');
   const [newPassword, setNewPassword] = useState('');
 
@@ -315,12 +318,23 @@ export function AuthScreen({ onSuccess }: AuthScreenProps) {
                     </button>
                   </div>
                   <Input
-                    type="password"
+                    type={showPassword ? 'text' : 'password'}
                     required
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Enter your password"
                     prefixIcon={<Lock className="w-4 h-4" />}
+                    suffixIcon={
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="text-slate-400 hover:text-slate-600 focus:outline-none transition-colors"
+                        tabIndex={-1}
+                        title={showPassword ? 'Hide password' : 'Show password'}
+                      >
+                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    }
                   />
                 </div>
 
@@ -546,10 +560,36 @@ export function AuthScreen({ onSuccess }: AuthScreenProps) {
               </form>
             )}
 
-            {/* Footnote */}
-            <div className="mt-8 pt-6 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-              <span>Root Administrator:</span>
-              <span className="font-mono text-slate-700 font-medium">admin@shipasaan.com</span>
+            {/* Footnote & Quick Access */}
+            <div className="mt-8 pt-5 border-t border-slate-100 text-xs">
+              <div className="flex items-center justify-between text-slate-500 mb-2">
+                <span className="font-semibold text-slate-700">Administrator Accounts:</span>
+                <span className="text-[11px] text-slate-400">Click to autofill credentials</span>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEmail('islamabadpindistation@gmail.com');
+                    setPassword('ChangeMeSecurely123!');
+                    setError(null);
+                  }}
+                  className="px-2.5 py-1 bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 text-slate-700 rounded text-[11px] font-mono border border-slate-200 transition-colors"
+                >
+                  islamabadpindistation@gmail.com
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEmail('admin@shipasaan.com');
+                    setPassword('ChangeMeSecurely123!');
+                    setError(null);
+                  }}
+                  className="px-2.5 py-1 bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 text-slate-700 rounded text-[11px] font-mono border border-slate-200 transition-colors"
+                >
+                  admin@shipasaan.com
+                </button>
+              </div>
             </div>
           </div>
         </div>
