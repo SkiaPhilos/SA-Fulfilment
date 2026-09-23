@@ -9,9 +9,9 @@ import {
   PickingBatchRow,
   WarehouseLocationRow,
   ProductRow
-} from './db';
-import { generateId } from './security';
-import { logAudit } from './audit';
+} from './db.js';
+import { generateId } from './security.js';
+import { logAudit } from './audit.js';
 
 export class FulfillmentError extends Error {
   constructor(public code: string, message: string) {

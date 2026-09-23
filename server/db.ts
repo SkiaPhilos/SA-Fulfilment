@@ -527,14 +527,48 @@ export async function initDatabase(): Promise<DatabaseSchema> {
       if (cloudDb) {
         dbCache = cloudDb;
         ensureCollections(dbCache);
-        persistDbSync();
         return dbCache;
       }
+      console.log('[DB] Initializing fresh schema in Supabase...');
+      dbCache = createEmptySchema();
+      await syncStateToSupabase(dbCache);
+      return dbCache;
     } catch (err: any) {
-      console.warn('[DB] Cloud state fetch failed, falling back to local storage:', err?.message);
+      console.warn('[DB] Cloud state initialization error:', err?.message);
     }
   }
   return getDb();
+}
+
+function createEmptySchema(): DatabaseSchema {
+  return {
+    users: [],
+    roles: [],
+    permissions: [],
+    role_permissions: [],
+    sessions: [],
+    password_reset_otps: [],
+    audit_logs: [],
+    system_settings: [],
+    customer_profiles: [],
+    employee_profiles: [],
+    wallet_accounts: [],
+    wallet_transactions: [],
+    warehouses: [],
+    storage_templates: [],
+    warehouse_locations: [],
+    products: [],
+    inventory_units: [],
+    inventory_transactions: [],
+    receiving_batches: [],
+    fulfillment_orders: [],
+    fulfillment_order_items: [],
+    picking_batches: [],
+    dispatch_manifests: [],
+    order_tracking_events: [],
+    return_orders: [],
+    billing_rate_cards: []
+  };
 }
 
 function ensureCollections(cache: DatabaseSchema): void {
@@ -563,64 +597,38 @@ export function getDb(): DatabaseSchema {
     return dbCache;
   }
 
-  ensureDataDir();
-
-  if (fs.existsSync(DB_FILE)) {
+  if (!isSupabaseConfigured() && fs.existsSync(DB_FILE)) {
     try {
       const raw = fs.readFileSync(DB_FILE, 'utf-8');
       dbCache = JSON.parse(raw);
       ensureCollections(dbCache!);
       return dbCache!;
     } catch (err) {
-      console.error('[DB] Error loading database file, initializing clean structure:', err);
+      console.error('[DB] Error loading database file:', err);
     }
   }
 
-  dbCache = {
-    users: [],
-    roles: [],
-    permissions: [],
-    role_permissions: [],
-    sessions: [],
-    password_reset_otps: [],
-    audit_logs: [],
-    system_settings: [],
-    customer_profiles: [],
-    employee_profiles: [],
-    wallet_accounts: [],
-    wallet_transactions: [],
-    warehouses: [],
-    storage_templates: [],
-    warehouse_locations: [],
-    products: [],
-    inventory_units: [],
-    inventory_transactions: [],
-    receiving_batches: [],
-    fulfillment_orders: [],
-    fulfillment_order_items: [],
-    picking_batches: [],
-    dispatch_manifests: [],
-    order_tracking_events: [],
-    return_orders: [],
-    billing_rate_cards: []
-  };
-
+  dbCache = createEmptySchema();
   persistDbSync();
   return dbCache;
 }
 
 export function persistDbSync(): void {
   if (!dbCache) return;
-  try {
-    ensureDataDir();
-    const tmpFile = `${DB_FILE}.tmp.${Date.now()}`;
-    fs.writeFileSync(tmpFile, JSON.stringify(dbCache, null, 2), 'utf-8');
-    fs.renameSync(tmpFile, DB_FILE);
-  } catch (err: any) {
-    console.warn('[DB] Local file persist note:', err?.message);
+
+  // If local dev without Supabase, try writing to disk safely
+  if (!isSupabaseConfigured()) {
+    try {
+      ensureDataDir();
+      const tmpFile = `${DB_FILE}.tmp.${Date.now()}`;
+      fs.writeFileSync(tmpFile, JSON.stringify(dbCache, null, 2), 'utf-8');
+      fs.renameSync(tmpFile, DB_FILE);
+    } catch (err: any) {
+      // Ignore filesystem write errors in serverless environments
+    }
   }
 
-  // Non-blocking sync to Supabase if configured
+  // Authoritative sync to Supabase
   if (isSupabaseConfigured()) {
     syncStateToSupabase(dbCache).catch((err) => {
       console.warn('[DB] Supabase async sync warning:', err);
