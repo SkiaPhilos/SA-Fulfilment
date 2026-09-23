@@ -560,36 +560,10 @@ export function AuthScreen({ onSuccess }: AuthScreenProps) {
               </form>
             )}
 
-            {/* Footnote & Quick Access */}
-            <div className="mt-8 pt-5 border-t border-slate-100 text-xs">
-              <div className="flex items-center justify-between text-slate-500 mb-2">
-                <span className="font-semibold text-slate-700">Administrator Accounts:</span>
-                <span className="text-[11px] text-slate-400">Click to autofill credentials</span>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEmail('islamabadpindistation@gmail.com');
-                    setPassword('ChangeMeSecurely123!');
-                    setError(null);
-                  }}
-                  className="px-2.5 py-1 bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 text-slate-700 rounded text-[11px] font-mono border border-slate-200 transition-colors"
-                >
-                  islamabadpindistation@gmail.com
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEmail('admin@shipasaan.com');
-                    setPassword('ChangeMeSecurely123!');
-                    setError(null);
-                  }}
-                  className="px-2.5 py-1 bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 text-slate-700 rounded text-[11px] font-mono border border-slate-200 transition-colors"
-                >
-                  admin@shipasaan.com
-                </button>
-              </div>
+            {/* Security Notice */}
+            <div className="mt-8 pt-5 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+              <span>Fulfillment Operations Portal</span>
+              <span className="text-slate-400">Ship Asaan Logistics v1.0</span>
             </div>
           </div>
         </div>
