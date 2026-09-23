@@ -10,11 +10,11 @@ This document honestly and chronologically records development progress, archite
 |---|---|---|---|
 | **Phase 1** | Ground Laying & Core Architecture Foundation | **Completed** | Full-stack server, relational schema, auth, admin bootstrap, audit engine |
 | **Phase 2** | Identity, RBAC & Customer/Employee Lifecycle | **Completed** | Granular RBAC, customer registration & approval queue, employee onboarding, completeness model, privilege containment |
-| **Phase 3** | Customer Wallet & Financial Ledger | **Next Up (Awaiting Approval)** | Immutable ledger, manual top-ups, concurrency-safe transactions |
-| **Phase 4** | Warehouse Infrastructure & Location Tree | Pending | Hierarchical tree, capacity tracking, location barcodes/QRs |
-| **Phase 5** | Products, Inventory Units & Scan-to-Place | Pending | Unique unit identities, stock labels, scan-to-place workflow |
-| **Phase 6** | Fulfill Order Lifecycle & CSV Import Engine | Pending | Multi-step CSV import, order confirmation state machine |
-| **Phase 7** | Warehouse Fulfillment, Picking & Scan-to-Pack | Pending | Reservation, picking sheet PDF, shipping labels, mandatory scan-to-pack |
+| **Phase 3** | Customer Wallet & Financial Ledger | **Completed** | Immutable ledger, manual top-ups, concurrency-safe transactions |
+| **Phase 4** | Warehouse Infrastructure & Location Tree | **Completed** | Hierarchical tree, capacity tracking, location barcodes/QRs |
+| **Phase 5** | Products, Inventory Units & Scan-to-Place | **Completed** | Unique unit identities (`UNIT-XXXX`), 4x2 thermal stock labels, scan-to-place putaway, immutable movement ledger |
+| **Phase 6** | Fulfill Order Lifecycle & CSV Import Engine | **Completed** | Multi-step CSV import, order confirmation state machine, queue & tracking |
+| **Phase 7** | Warehouse Fulfillment, Picking & Scan-to-Pack | **Next Up** | Reservation, picking sheet PDF, shipping labels, mandatory scan-to-pack |
 | **Phase 8** | Operational Dashboards, Documents & Polish | Pending | Zero-data operational dashboards, secure docs, audit viewer |
 
 ---
@@ -176,7 +176,92 @@ This document honestly and chronologically records development progress, archite
   - `compile_applet` passed (Vite production build succeeded).
   - Dev server restarted and Node verification confirmed active wallets and seeded transactions in database.
 - **Next Step:**
-  - Await user review and confirmation before beginning **Phase 4: Warehouse Infrastructure & Flexible Location Hierarchy**.
+  - Proceed to **Phase 5: Products, Inventory Units & Scan-to-Place Putaway**.
+
+### [Entry 008] — Phase 5: Products, Inventory Units & Scan-to-Place Completed
+- **Date & Time:** 2026-09-22
+- **Phase Objective:**
+  - Build the product & SKU catalog, physical unit identity tracking (`UNIT-XXXX`), receiving intake workflow, barcode & QR stock label printing, interactive scan-to-place putaway station, and immutable inventory movement ledger.
+- **Action Taken:**
+  - **Relational Schema Extensions (`server/db.ts`):**
+    - Added `ProductRow`: Authoritative SKU records, dimensions ($L \times W \times H$ in cm), volumetric capacity, weight in kg, declared value in PKR, low-stock alert threshold, and merchant association.
+    - Added `InventoryUnitRow`: Physical individual piece identity tracking with unique uppercase tracking codes (`UNIT-XXXX-XXXX`), state (`awaiting_stocking`, `in_storage`, `reserved`, `picked`, `packed`, `fulfilled`, `damaged`, `lost`), condition (`good`, `damaged`), current warehouse location ID, and receiving batch reference.
+    - Added `ReceivingBatchRow`: Inbound freight batch records tracking carrier, bilty / tracking reference, total received pieces, and stocked pieces count.
+    - Added `InventoryTransactionRow`: Immutable transaction journal recording event types (`RECEIVE`, `STOCK`, `MOVE`, `RESERVE`, `PICK`, `PACK`, `FULFILL`, `RETURN`, `DAMAGE`, `LOSS`, `ADJUST`), previous and new state, origin and destination location IDs, actor context, and audit timestamps.
+  - **Authoritative Service Layer (`server/inventoryService.ts`):**
+    - Implemented atomic `receiveStock`: Creates freight intake batch, generates cryptographically distinct physical tracking codes, initializes state as `awaiting_stocking`, logs transaction ledger entries.
+    - Implemented `stockUnitScan`: Critical path enforcing physical truth. Validates unit existence and `awaiting_stocking` state, confirms destination location status (not damaged/restricted), validates and updates location unit capacity, transitions state to `in_storage`, records timestamp and immutable ledger entry.
+    - Implemented `moveUnit`: Concurrency-safe relocation between physical locations with capacity checking and transaction logging.
+    - Implemented `adjustUnit`: Condition adjustments (e.g. good to damaged or loss) requiring mandatory operator audit justification.
+  - **Secure REST API (`server/inventoryRoutes.ts`):**
+    - Mounted `/api/inventory` with strict RBAC:
+      - `GET /products`: Enriched catalog with available, awaiting, reserved, and damaged unit counts.
+      - `POST /products`: Product SKU registration with merchant scoping.
+      - `PUT /products/:id`: SKU update.
+      - `POST /receive`: Freight intake endpoint (requires `inventory.receive`).
+      - `GET /batches`: Intake batch list.
+      - `GET /units`: Physical units list with multi-parameter filtering (warehouse, customer, location, state, search).
+      - `POST /stock-scan`: Scan-to-place putaway endpoint (requires `inventory.stock`).
+      - `POST /move`: Relocation endpoint (requires `inventory.move`).
+      - `POST /adjust`: Condition adjustment (requires `inventory.adjust`).
+      - `GET /ledger`: Filterable immutable transaction ledger.
+      - `POST /labels`: Batch unit label metadata generation for Code 128 and QR printing.
+  - **Frontend UI Integration (`src/components/inventory/`):**
+    - `ProductCreateModal.tsx`: SKU creation with volumetric dimension inputs, weight, declared value, and merchant selection.
+    - `StockReceivingModal.tsx`: Freight receiving intake modal with line item builder, condition selector, and instant post-intake navigation to label printing or putaway session.
+    - `UnitLabelPrintModal.tsx`: 4" $\times$ 2" thermal shipping label generator rendering Code 128 barcodes (`jsbarcode`) and QR codes (`qrcode`) with print sheet formatting.
+    - `StockingSessionModal.tsx`: High-velocity scan-to-place putaway station supporting USB hardware keyboard wedge scanners and manual inputs, live location capacity progress bars, audio chime feedback via Web Audio API, and real-time session placement log.
+    - `InventoryUnitListView.tsx`: Granular physical unit tracking table with 1-click tracking code copying, state badges, relocation modal, and condition adjustment modal.
+    - `InventoryLedgerView.tsx`: Tabular immutable audit journal with event type filters and actor identification.
+    - `InventoryManagementView.tsx`: Master multi-tab container unifying Catalog, Physical Units, and Ledger with direct launch for Putaway Station.
+    - `AppLayout.tsx` & `App.tsx`: Added "Inventory & Physical Units" navigation tab and routing with fine-grained permission guards.
+- **Verification:**
+  - `lint_applet` passed (`tsc --noEmit` exited 0).
+  - `compile_applet` passed (Vite production build succeeded).
+- **Next Step:**
+  - Proceed to **Phase 6: Fulfill Order Lifecycle & CSV Import Engine**.
+
+### [Entry 009] — Phase 6: Fulfill Order Lifecycle & CSV Import Engine Completed
+- **Date & Time:** 2026-09-22
+- **Phase Objective:**
+  - Build end-to-end fulfillment order intake, customer self-service, staff proxy creation, high-resilience multi-step CSV order import engine, and the authoritative Confirmation Queue.
+- **Action Taken:**
+  - **Relational Schema Extensions (`server/db.ts`):**
+    - Added `FulfillmentOrderRow`: Authoritative order record tracking `order_number` (`ORD-YYYYMM-XXXX`), `customer_id`, `customer_reference`, `status` (`placed`, `confirmed`, `to_fulfill`, `picked`, `packed`, `fulfilled`, `cancelled`), consignee details, destination city & province, COD amount, payment method, declared total value, audit users & timestamps (`created_by`, `confirmed_by`, `cancelled_by`, `cancellation_reason`).
+    - Added `FulfillmentOrderItemRow`: Line item snapshots capturing SKU, product name, quantity, unit price, and total price.
+    - Updated `InventoryUnitRow`: Linked units with optional `order_id` and `order_item_id`.
+  - **Authoritative Service Layer (`server/orderService.ts`):**
+    - Implemented sequential order number generation (`ORD-YYYYMM-0001`).
+    - Implemented `createOrder`: Supports both merchant self-service and staff proxy with live customer SKU validation, quantity checking, and status initialization (`placed` or instant confirmation if staff has `orders.confirm`).
+    - Implemented `previewCsvImport`: Multi-step CSV parser with quotes handling, column alias recognition, multi-line order grouping by `customer_reference`, catalog SKU validation, and live warehouse inventory availability calculations (`in_storage` units).
+    - Implemented `commitCsvImport`: Concurrency-safe batch order intake with "skip invalid orders" option and audit trail logging.
+    - Implemented `confirmOrder` & `bulkConfirmOrders`: Dedicated Confirmation Queue state transitions (`placed` -> `confirmed`) with actor stamping.
+    - Implemented `cancelOrder`: Order cancellation with mandatory operator/merchant justification and inventory reservation release.
+    - Implemented `exportOrdersCsv`: Filter-aware RFC-compliant CSV export.
+  - **REST API Routes (`server/orderRoutes.ts` & `server/serverApp.ts`):**
+    - Mounted `/api/orders` endpoints:
+      - `GET /api/orders`: Query orders with status, customer, city, and text search.
+      - `GET /api/orders/:id`: Full order details, line items, and linked physical units.
+      - `POST /api/orders`: Single order creation.
+      - `POST /api/orders/csv/preview`: Multi-step CSV parse & validation.
+      - `POST /api/orders/csv/commit`: Batch order commit.
+      - `POST /api/orders/:id/confirm`: Single order confirmation.
+      - `POST /api/orders/bulk-confirm`: Bulk confirmation in Confirmation Queue.
+      - `POST /api/orders/:id/cancel`: Order cancellation with reason.
+      - `GET /api/orders/export`: CSV export.
+  - **Frontend Client & UI (`src/components/orders/`):**
+    - `OrderCreateModal.tsx`: Manual order creator with Pakistani city suggestions, consignee validation, live SKU picker with warehouse stock badges, line totals, and declared value calculator.
+    - `OrderCsvImportModal.tsx`: Multi-step wizard with file upload, direct text paste, downloadable standard CSV template, summary metrics, expandable row errors with actionable correction hints, stock warnings, and commit confirmation.
+    - `OrderDetailModal.tsx`: Full operational order drawer showing consignee card (click-to-copy phone), financial terms, line items with real-time storage availability, status badges, and confirmation/cancellation actions.
+    - `FulfillmentOrderListView.tsx`: Master operational orders workspace with filter tabs (All, Confirmation Queue, Confirmed, To Fulfill, Fulfilled, Cancelled), bulk select and bulk confirm action bar, live stock adequacy badges, search, and CSV export.
+    - `AppLayout.tsx` & `App.tsx`: Added "Fulfillment Orders" navigation tab and routing with permission containment.
+- **Verification:**
+  - `lint_applet` passed (`tsc --noEmit` exited 0).
+  - `compile_applet` passed (production build succeeded).
+- **Next Step:**
+  - Proceed to **Phase 7: Warehouse Fulfillment, Picking & Scan-to-Pack**.
+
+
 
 
 

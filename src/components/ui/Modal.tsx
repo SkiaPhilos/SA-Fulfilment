@@ -4,11 +4,12 @@ import { X } from 'lucide-react';
 export interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
-  title: string;
+  title: React.ReactNode;
   description?: string;
   children: React.ReactNode;
   footer?: React.ReactNode;
   maxWidth?: 'sm' | 'md' | 'lg' | 'xl';
+  size?: 'sm' | 'md' | 'lg' | 'xl';
 }
 
 export const Modal: React.FC<ModalProps> = ({
@@ -18,7 +19,8 @@ export const Modal: React.FC<ModalProps> = ({
   description,
   children,
   footer,
-  maxWidth = 'md'
+  maxWidth,
+  size
 }) => {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -32,6 +34,7 @@ export const Modal: React.FC<ModalProps> = ({
 
   if (!isOpen) return null;
 
+  const effectiveWidth = size || maxWidth || 'md';
   const maxWidths = {
     sm: 'max-w-sm',
     md: 'max-w-lg',
@@ -50,7 +53,7 @@ export const Modal: React.FC<ModalProps> = ({
 
       {/* Dialog Window */}
       <div
-        className={`relative w-full ${maxWidths[maxWidth]} bg-white rounded-lg border border-slate-200 shadow-xl overflow-hidden z-10 transition-all transform animate-in fade-in-0 zoom-in-95 duration-150`}
+        className={`relative w-full ${maxWidths[effectiveWidth]} bg-white rounded-lg border border-slate-200 shadow-xl overflow-hidden z-10 transition-all transform animate-in fade-in-0 zoom-in-95 duration-150`}
         role="dialog"
         aria-modal="true"
       >

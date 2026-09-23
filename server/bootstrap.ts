@@ -98,6 +98,9 @@ export async function bootstrapSystem(): Promise<void> {
       'warehouses.view', 'warehouses.create', 'warehouses.edit',
       'inventory.view', 'inventory.receive', 'inventory.stock', 'inventory.move', 'inventory.adjust', 'inventory.export',
       'orders.view', 'orders.create', 'orders.confirm', 'orders.pick', 'orders.pack', 'orders.cancel', 'orders.export',
+      'manifests.view', 'manifests.create', 'manifests.dispatch',
+      'returns.view', 'returns.process',
+      'billing.view', 'billing.manage',
       'wallet.view', 'wallet.credit', 'wallet.export',
       'roles.view', 'roles.assign'
     ];
@@ -117,7 +120,9 @@ export async function bootstrapSystem(): Promise<void> {
     const employeePerms = [
       'warehouses.view',
       'inventory.view', 'inventory.receive', 'inventory.stock', 'inventory.move',
-      'orders.view', 'orders.pick', 'orders.pack'
+      'orders.view', 'orders.pick', 'orders.pack',
+      'manifests.view', 'manifests.create', 'manifests.dispatch',
+      'returns.view', 'returns.process'
     ];
     for (const code of employeePerms) {
       const hasPerm = db.role_permissions.some(
@@ -134,7 +139,9 @@ export async function bootstrapSystem(): Promise<void> {
     // Grant Customer client-portal scoped permissions
     const customerPerms = [
       'inventory.view',
-      'orders.view', 'orders.create',
+      'orders.view', 'orders.create', 'orders.cancel', 'orders.export',
+      'returns.view',
+      'billing.view',
       'wallet.view'
     ];
     for (const code of customerPerms) {
@@ -659,6 +666,23 @@ export async function bootstrapSystem(): Promise<void> {
           updated_at: now
         });
       });
+    }
+
+    // 8. Ensure default billing rate card exists
+    if (!db.billing_rate_cards || db.billing_rate_cards.length === 0) {
+      db.billing_rate_cards = [{
+        id: 'rate_standard_pk',
+        customer_id: null, // Global default
+        name: 'Standard Commercial Fulfillment & Courier Tariff (PKR)',
+        base_courier_fee: 190.00, // Standard domestic base courier delivery fee
+        per_kg_fee: 45.00,        // Additional kg weight charge
+        pick_pack_fee_per_unit: 30.00, // Scanning, pick path & thermal packing charge
+        daily_storage_fee_per_cbm: 15.00, // Warehouse volume rent
+        return_processing_fee: 40.00, // Reverse QC & inspection fee
+        is_active: true,
+        created_at: now,
+        updated_at: now
+      }];
     }
   });
 }

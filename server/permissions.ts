@@ -44,6 +44,19 @@ export const SYSTEM_PERMISSIONS: PermissionDefinition[] = [
   { code: 'orders.cancel', module: 'Fulfillment', description: 'Cancel fulfill orders and release reserved stock' },
   { code: 'orders.export', module: 'Fulfillment', description: 'Export fulfillment order data and reports' },
 
+  // Dispatch Manifests & Carrier Handover Module
+  { code: 'manifests.view', module: 'Dispatch', description: 'View courier handover dispatch manifests' },
+  { code: 'manifests.create', module: 'Dispatch', description: 'Create and print courier handover manifests' },
+  { code: 'manifests.dispatch', module: 'Dispatch', description: 'Sign and dispatch carrier manifests' },
+
+  // Returns & Reverse Logistics Module
+  { code: 'returns.view', module: 'Returns', description: 'View return orders and reverse logistics items' },
+  { code: 'returns.process', module: 'Returns', description: 'Receive, inspect and restock or quarantine returned units' },
+
+  // Billing & Rate Cards Module
+  { code: 'billing.view', module: 'Billing', description: 'View automated fulfillment and courier billing rates' },
+  { code: 'billing.manage', module: 'Billing', description: 'Configure custom client rate cards and billing fees' },
+
   // Customer Wallet Module
   { code: 'wallet.view', module: 'Wallet', description: 'View customer wallet balances and ledger entries' },
   { code: 'wallet.credit', module: 'Wallet', description: 'Manually credit customer wallet with bank deposit reference' },

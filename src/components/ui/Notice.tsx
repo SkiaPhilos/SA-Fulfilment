@@ -4,7 +4,8 @@ import { AlertCircle, CheckCircle2, AlertTriangle, Info, X } from 'lucide-react'
 export interface NoticeProps {
   variant?: 'success' | 'error' | 'warning' | 'info';
   title?: string;
-  message: string;
+  message?: string;
+  children?: React.ReactNode;
   onDismiss?: () => void;
   className?: string;
 }
@@ -13,6 +14,7 @@ export const Notice: React.FC<NoticeProps> = ({
   variant = 'info',
   title,
   message,
+  children,
   onDismiss,
   className = ''
 }) => {
@@ -36,6 +38,7 @@ export const Notice: React.FC<NoticeProps> = ({
   };
 
   const current = styles[variant];
+  const content = message ?? children;
 
   return (
     <div
@@ -46,7 +49,7 @@ export const Notice: React.FC<NoticeProps> = ({
         {current.icon}
         <div>
           {title && <h5 className="font-semibold mb-0.5 tracking-tight">{title}</h5>}
-          <p className="leading-relaxed opacity-95">{message}</p>
+          <div className="leading-relaxed opacity-95">{content}</div>
         </div>
       </div>
 

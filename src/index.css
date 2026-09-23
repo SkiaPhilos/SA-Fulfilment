@@ -30,3 +30,50 @@
     background: #94a3b8;
   }
 }
+
+/* Global Print Protection Rules */
+@media print {
+  /* Hide standard web chrome */
+  header,
+  aside,
+  nav,
+  button,
+  .print-hidden,
+  .print\\:hidden,
+  [data-print-hidden="true"] {
+    display: none !important;
+  }
+
+  body, html {
+    background: #ffffff !important;
+    color: #000000 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Prevent dialogs and overlays from clipping content */
+  .fixed.inset-0,
+  [role="dialog"] {
+    position: static !important;
+    background: transparent !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+    overflow: visible !important;
+    max-height: none !important;
+  }
+
+  .backdrop-blur-xs,
+  .bg-slate-900\\/50,
+  .bg-slate-900\\/60 {
+    background: transparent !important;
+    backdrop-filter: none !important;
+  }
+
+  .overflow-hidden,
+  .overflow-y-auto {
+    overflow: visible !important;
+    max-height: none !important;
+  }
+}

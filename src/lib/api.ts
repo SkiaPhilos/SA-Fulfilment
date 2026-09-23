@@ -746,6 +746,1033 @@ class ApiClient {
       method: 'DELETE'
     });
   }
+
+  // -----------------------------------------------------------
+  // Phase 5: Products, Inventory Units & Physical Ledger
+  // -----------------------------------------------------------
+
+  async getProducts(params?: {
+    customerId?: string;
+    search?: string;
+    category?: string;
+    lowStockOnly?: boolean;
+    status?: 'active' | 'archived';
+  }): Promise<{ products: EnrichedProduct[] }> {
+    const q = new URLSearchParams();
+    if (params?.customerId) q.set('customerId', params.customerId);
+    if (params?.search) q.set('search', params.search);
+    if (params?.category) q.set('category', params.category);
+    if (params?.lowStockOnly) q.set('lowStockOnly', 'true');
+    if (params?.status) q.set('status', params.status);
+
+    const queryStr = q.toString() ? `?${q.toString()}` : '';
+    return this.request(`/api/inventory/products${queryStr}`);
+  }
+
+  async createProduct(data: {
+    customerId?: string;
+    sku: string;
+    name: string;
+    description?: string;
+    category?: string;
+    barcode?: string;
+    dimensions?: { length_cm: number; width_cm: number; height_cm: number };
+    weight_kg?: number;
+    declared_value?: number;
+    low_stock_threshold?: number;
+  }): Promise<{ product: Product; message: string }> {
+    return this.request('/api/inventory/products', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  }
+
+  async updateProduct(
+    id: string,
+    data: {
+      name?: string;
+      description?: string;
+      category?: string;
+      barcode?: string;
+      dimensions?: { length_cm: number; width_cm: number; height_cm: number };
+      weight_kg?: number;
+      declared_value?: number;
+      low_stock_threshold?: number;
+      status?: 'active' | 'archived';
+    }
+  ): Promise<{ product: Product; message: string }> {
+    return this.request(`/api/inventory/products/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    });
+  }
+
+  async receiveStock(data: {
+    warehouseId: string;
+    customerId: string;
+    carrier?: string;
+    trackingReference?: string;
+    items: Array<{
+      productId: string;
+      quantity: number;
+      condition?: 'good' | 'damaged';
+      notes?: string;
+    }>;
+  }): Promise<{
+    batch: ReceivingBatch;
+    unitsCreated: number;
+    sampleUnits: InventoryUnit[];
+    message: string;
+  }> {
+    return this.request('/api/inventory/receive', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  }
+
+  async getReceivingBatches(customerId?: string): Promise<{ batches: ReceivingBatch[] }> {
+    const q = customerId ? `?customerId=${encodeURIComponent(customerId)}` : '';
+    return this.request(`/api/inventory/batches${q}`);
+  }
+
+  async getInventoryUnits(params?: {
+    customerId?: string;
+    productId?: string;
+    warehouseId?: string;
+    locationId?: string;
+    batchId?: string;
+    state?: InventoryUnitState;
+    search?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<{ units: EnrichedInventoryUnit[]; total: number }> {
+    const q = new URLSearchParams();
+    if (params?.customerId) q.set('customerId', params.customerId);
+    if (params?.productId) q.set('productId', params.productId);
+    if (params?.warehouseId) q.set('warehouseId', params.warehouseId);
+    if (params?.locationId) q.set('locationId', params.locationId);
+    if (params?.batchId) q.set('batchId', params.batchId);
+    if (params?.state) q.set('state', params.state);
+    if (params?.search) q.set('search', params.search);
+    if (params?.limit) q.set('limit', params.limit.toString());
+    if (params?.offset) q.set('offset', params.offset.toString());
+
+    const queryStr = q.toString() ? `?${q.toString()}` : '';
+    return this.request(`/api/inventory/units${queryStr}`);
+  }
+
+  async stockScanUnit(data: {
+    unitTrackingCode: string;
+    locationCodeOrBarcode: string;
+  }): Promise<{
+    unit: InventoryUnit;
+    location: WarehouseLocation;
+    batch?: ReceivingBatch;
+    message: string;
+  }> {
+    return this.request('/api/inventory/stock-scan', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  }
+
+  async moveUnit(data: {
+    unitId: string;
+    toLocationId: string;
+    notes?: string;
+  }): Promise<{
+    unit: InventoryUnit;
+    fromLocation?: WarehouseLocation;
+    toLocation: WarehouseLocation;
+    message: string;
+  }> {
+    return this.request('/api/inventory/move', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  }
+
+  async adjustUnit(data: {
+    unitId: string;
+    condition?: 'good' | 'damaged';
+    state?: InventoryUnitState;
+    notes: string;
+  }): Promise<{ unit: InventoryUnit; message: string }> {
+    return this.request('/api/inventory/adjust', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  }
+
+  async getInventoryLedger(params?: {
+    customerId?: string;
+    unitId?: string;
+    productId?: string;
+    type?: string;
+    limit?: number;
+  }): Promise<{ ledger: InventoryTransaction[] }> {
+    const q = new URLSearchParams();
+    if (params?.customerId) q.set('customerId', params.customerId);
+    if (params?.unitId) q.set('unitId', params.unitId);
+    if (params?.productId) q.set('productId', params.productId);
+    if (params?.type) q.set('type', params.type);
+    if (params?.limit) q.set('limit', params.limit.toString());
+
+    const queryStr = q.toString() ? `?${q.toString()}` : '';
+    return this.request(`/api/inventory/ledger${queryStr}`);
+  }
+
+  async getUnitLabels(data: {
+    unitIds?: string[];
+    batchId?: string;
+    productId?: string;
+  }): Promise<{ labels: UnitLabelData[] }> {
+    return this.request('/api/inventory/labels', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  }
+
+  // -------------------------------------------------------------
+  // Phase 6: Fulfillment Orders & CSV Engine
+  // -------------------------------------------------------------
+
+  async getOrders(params?: {
+    status?: string;
+    customerId?: string;
+    search?: string;
+    city?: string;
+    paymentMethod?: 'cod' | 'prepaid';
+    startDate?: string;
+    endDate?: string;
+    page?: number;
+    limit?: number;
+  }): Promise<{
+    orders: FulfillmentOrder[];
+    totalCount: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  }> {
+    const q = new URLSearchParams();
+    if (params?.status) q.set('status', params.status);
+    if (params?.customerId) q.set('customerId', params.customerId);
+    if (params?.search) q.set('search', params.search);
+    if (params?.city) q.set('city', params.city);
+    if (params?.paymentMethod) q.set('paymentMethod', params.paymentMethod);
+    if (params?.startDate) q.set('startDate', params.startDate);
+    if (params?.endDate) q.set('endDate', params.endDate);
+    if (params?.page) q.set('page', params.page.toString());
+    if (params?.limit) q.set('limit', params.limit.toString());
+
+    const queryStr = q.toString() ? `?${q.toString()}` : '';
+    return this.request(`/api/orders${queryStr}`);
+  }
+
+  async getOrderDetails(id: string): Promise<{
+    order: FulfillmentOrder;
+    customer: {
+      id: string;
+      business_name: string;
+      brand_name: string;
+      phone: string;
+      city: string;
+    } | null;
+    items: FulfillmentOrderItem[];
+    allocated_units: Array<{
+      id: string;
+      tracking_code: string;
+      state: string;
+      location_id: string | null;
+    }>;
+  }> {
+    return this.request(`/api/orders/${id}`);
+  }
+
+  async createOrder(data: {
+    customerId?: string;
+    customerReference?: string;
+    consigneeName: string;
+    consigneePhone: string;
+    consigneeEmail?: string;
+    shippingAddress: string;
+    city: string;
+    province?: string;
+    postalCode?: string;
+    codAmount: number;
+    paymentMethod?: 'cod' | 'prepaid';
+    shippingNotes?: string;
+    items: Array<{
+      productId?: string;
+      sku?: string;
+      quantity: number;
+      unitPrice?: number;
+    }>;
+    autoConfirm?: boolean;
+  }): Promise<{ order: FulfillmentOrder; itemsCount: number }> {
+    return this.request('/api/orders', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  }
+
+  async previewOrdersCsv(csvContent: string, customerId?: string): Promise<CsvPreviewResult> {
+    return this.request('/api/orders/csv/preview', {
+      method: 'POST',
+      body: JSON.stringify({ csvContent, customerId })
+    });
+  }
+
+  async commitOrdersCsv(
+    previewData: CsvPreviewResult,
+    skipInvalid: boolean = false
+  ): Promise<{
+    importedCount: number;
+    skippedCount: number;
+    createdOrderNumbers: string[];
+  }> {
+    return this.request('/api/orders/csv/commit', {
+      method: 'POST',
+      body: JSON.stringify({ previewData, skipInvalid })
+    });
+  }
+
+  async confirmOrder(id: string): Promise<{ order: FulfillmentOrder }> {
+    return this.request(`/api/orders/${id}/confirm`, {
+      method: 'POST'
+    });
+  }
+
+  async bulkConfirmOrders(orderIds: string[]): Promise<{
+    confirmedCount: number;
+    failedCount: number;
+    failed: Array<{ orderId: string; reason: string }>;
+  }> {
+    return this.request('/api/orders/bulk-confirm', {
+      method: 'POST',
+      body: JSON.stringify({ orderIds })
+    });
+  }
+
+  async cancelOrder(id: string, reason: string): Promise<{ order: FulfillmentOrder }> {
+    return this.request(`/api/orders/${id}/cancel`, {
+      method: 'POST',
+      body: JSON.stringify({ reason })
+    });
+  }
+
+  async exportOrdersCsv(params?: {
+    status?: string;
+    customerId?: string;
+    search?: string;
+    city?: string;
+    paymentMethod?: 'cod' | 'prepaid';
+    startDate?: string;
+    endDate?: string;
+  }): Promise<Blob> {
+    const q = new URLSearchParams();
+    if (params?.status) q.set('status', params.status);
+    if (params?.customerId) q.set('customerId', params.customerId);
+    if (params?.search) q.set('search', params.search);
+    if (params?.city) q.set('city', params.city);
+    if (params?.paymentMethod) q.set('paymentMethod', params.paymentMethod);
+    if (params?.startDate) q.set('startDate', params.startDate);
+    if (params?.endDate) q.set('endDate', params.endDate);
+
+    const queryStr = q.toString() ? `?${q.toString()}` : '';
+    const res = await fetch(`/api/orders/export${queryStr}`, {
+      headers: {
+        Authorization: `Bearer ${this.token || localStorage.getItem('ship_asaan_token') || ''}`
+      }
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: 'Export failed' }));
+      throw new Error(err.error || 'Failed to export orders');
+    }
+
+    return res.blob();
+  }
+
+  // -------------------------------------------------------------
+  // Phase 7: Warehouse Fulfillment, Picking & Scan-to-Pack
+  // -------------------------------------------------------------
+
+  async prepareFulfillment(orderIds: string[]): Promise<{
+    success: boolean;
+    message: string;
+    result: {
+      preparedCount: number;
+      preparedOrderNumbers: string[];
+      failedCount: number;
+      failedOrders: Array<{ orderId: string; orderNumber: string; reason: string }>;
+      totalUnitsReserved: number;
+    };
+  }> {
+    return this.request('/api/fulfillment/prepare', {
+      method: 'POST',
+      body: JSON.stringify({ orderIds })
+    });
+  }
+
+  async createPickingBatch(orderIds: string[]): Promise<{
+    success: boolean;
+    message: string;
+    batch: PickingBatch;
+  }> {
+    return this.request('/api/fulfillment/batches', {
+      method: 'POST',
+      body: JSON.stringify({ orderIds })
+    });
+  }
+
+  async getPickingBatches(): Promise<{ batches: PickingBatch[] }> {
+    return this.request('/api/fulfillment/batches');
+  }
+
+  async getPickingBatchDetails(batchId: string): Promise<PickingBatchDetails> {
+    return this.request(`/api/fulfillment/batches/${batchId}`);
+  }
+
+  async pickUnitScan(params: {
+    unitTrackingCode: string;
+    batchId?: string;
+    orderId?: string;
+  }): Promise<{
+    success: boolean;
+    message: string;
+    result: {
+      unit: {
+        id: string;
+        tracking_code: string;
+        state: string;
+        product_name: string;
+        sku: string;
+        location_code: string;
+      };
+      order: {
+        id: string;
+        order_number: string;
+        status: string;
+        consignee_name: string;
+        isOrderFullyPicked: boolean;
+      };
+      batchCompleted: boolean;
+    };
+  }> {
+    return this.request('/api/fulfillment/pick-scan', {
+      method: 'POST',
+      body: JSON.stringify(params)
+    });
+  }
+
+  async packOrderScan(orderBarcode: string): Promise<{
+    success: boolean;
+    message: string;
+    result: {
+      order: {
+        id: string;
+        order_number: string;
+        customer_reference?: string;
+        consignee_name: string;
+        consignee_phone: string;
+        city: string;
+        shipping_address: string;
+        cod_amount: number;
+        payment_method: 'cod' | 'prepaid';
+        total_pieces: number;
+        status: string;
+        customer_brand: string;
+      };
+      packedUnitsCount: number;
+      packedAt: string;
+    };
+  }> {
+    return this.request('/api/fulfillment/pack-scan', {
+      method: 'POST',
+      body: JSON.stringify({ orderBarcode })
+    });
+  }
+
+  async dispatchOrders(orderIds: string[]): Promise<{
+    success: boolean;
+    message: string;
+    result: {
+      dispatchedCount: number;
+      dispatchedOrders: string[];
+      failedCount: number;
+      failedOrders: Array<{ orderId: string; reason: string }>;
+    };
+  }> {
+    return this.request('/api/fulfillment/dispatch', {
+      method: 'POST',
+      body: JSON.stringify({ orderIds })
+    });
+  }
+
+  async getShippingLabels(orderIds: string[]): Promise<{ labels: ShippingLabelData[] }> {
+    return this.request('/api/fulfillment/shipping-labels', {
+      method: 'POST',
+      body: JSON.stringify({ orderIds })
+    });
+  }
+
+  // -------------------------------------------------------------
+  // Phase 8: Carrier Dispatch, Tracking, Returns & Automated Billing
+  // -------------------------------------------------------------
+
+  async createDispatchManifest(data: {
+    carrierName: string;
+    driverName?: string;
+    driverPhone?: string;
+    vehicleNumber?: string;
+    handoverNotes?: string;
+    orderIds: string[];
+  }): Promise<{ success: boolean; message: string; manifest: DispatchManifest }> {
+    return this.request('/api/dispatch/manifests', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  }
+
+  async signAndDispatchManifest(manifestId: string): Promise<{
+    success: boolean;
+    message: string;
+    result: {
+      manifest: DispatchManifest;
+      processedOrders: Array<{ orderNumber: string; billedAmount: number; trackingEventId: string }>;
+    };
+  }> {
+    return this.request(`/api/dispatch/manifests/${manifestId}/sign`, {
+      method: 'POST'
+    });
+  }
+
+  async getDispatchManifests(): Promise<{ manifests: DispatchManifestWithOrders[] }> {
+    return this.request('/api/dispatch/manifests');
+  }
+
+  async getDispatchManifestDetails(id: string): Promise<DispatchManifestDetails> {
+    return this.request(`/api/dispatch/manifests/${id}`);
+  }
+
+  async addTrackingEvent(data: {
+    orderId: string;
+    status: OrderTrackingStatus;
+    location: string;
+    description: string;
+  }): Promise<{ success: boolean; message: string; event: OrderTrackingEvent }> {
+    return this.request('/api/dispatch/tracking', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  }
+
+  async getOrderTracking(orderIdentifier: string): Promise<OrderTrackingHistory> {
+    return this.request(`/api/dispatch/tracking/${orderIdentifier}`);
+  }
+
+  async processReturn(data: {
+    orderId: string;
+    returnType: 'rto_courier' | 'customer_return';
+    returnReason: string;
+    trackingReference?: string;
+    disposition: 'restocked' | 'damaged_quarantine' | 'merchant_claim' | 'scrapped';
+    targetLocationId?: string;
+    conditionNotes: string;
+  }): Promise<{
+    success: boolean;
+    message: string;
+    result: {
+      returnOrder: ReturnOrder;
+      unitsReconciledCount: number;
+      targetLocationName: string;
+    };
+  }> {
+    return this.request('/api/dispatch/returns', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  }
+
+  async getReturnOrders(): Promise<{ returns: ReturnOrderEnriched[] }> {
+    return this.request('/api/dispatch/returns');
+  }
+
+  async getBillingRateCards(): Promise<{ rateCards: BillingRateCard[] }> {
+    return this.request('/api/dispatch/rate-cards');
+  }
+
+  async updateBillingRateCard(
+    id: string,
+    updates: Partial<BillingRateCard>
+  ): Promise<{ success: boolean; message: string; rateCard: BillingRateCard }> {
+    return this.request(`/api/dispatch/rate-cards/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(updates)
+    });
+  }
+}
+
+// Phase 8 Interfaces
+export interface DispatchManifest {
+  id: string;
+  manifest_number: string;
+  carrier_name: string;
+  driver_name?: string;
+  driver_phone?: string;
+  vehicle_number?: string;
+  handover_notes?: string;
+  order_ids: string[];
+  total_orders: number;
+  total_cod_amount: number;
+  status: 'draft' | 'signed_dispatched' | 'closed';
+  created_by_id: string;
+  created_by_name: string;
+  dispatched_at?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DispatchManifestWithOrders extends DispatchManifest {
+  orders: Array<{
+    id: string;
+    order_number: string;
+    consignee_name: string;
+    consignee_phone: string;
+    shipping_address: string;
+    city: string;
+    cod_amount: number;
+    payment_method: 'cod' | 'prepaid';
+    status: string;
+    customer_brand: string;
+  }>;
+}
+
+export interface DispatchManifestDetails {
+  manifest: DispatchManifest;
+  orders: Array<{
+    sequence: number;
+    id: string;
+    order_number: string;
+    customer_reference: string;
+    customer_brand: string;
+    consignee_name: string;
+    consignee_phone: string;
+    city: string;
+    shipping_address: string;
+    payment_method: 'cod' | 'prepaid';
+    cod_amount: number;
+    total_pieces: number;
+    shipping_notes: string;
+    status: string;
+  }>;
+  summary: {
+    total_orders: number;
+    total_cod_amount: number;
+    cod_orders_count: number;
+    prepaid_orders_count: number;
+    total_pieces_count: number;
+  };
+}
+
+export type OrderTrackingStatus =
+  | 'placed'
+  | 'confirmed'
+  | 'to_fulfill'
+  | 'picked'
+  | 'packed'
+  | 'dispatched'
+  | 'in_transit'
+  | 'out_for_delivery'
+  | 'delivered'
+  | 'undelivered_attempt'
+  | 'rto_in_transit'
+  | 'returned_to_warehouse'
+  | 'cancelled';
+
+export interface OrderTrackingEvent {
+  id: string;
+  order_id: string;
+  order_number: string;
+  status: OrderTrackingStatus;
+  location: string;
+  description: string;
+  actor_id?: string | null;
+  actor_name?: string | null;
+  created_at: string;
+}
+
+export interface OrderTrackingHistory {
+  order: {
+    id: string;
+    order_number: string;
+    customer_reference?: string;
+    status: string;
+    consignee_name: string;
+    city: string;
+    shipping_address: string;
+    cod_amount: number;
+    payment_method: 'cod' | 'prepaid';
+    created_at: string;
+    customer_brand: string;
+  };
+  items: FulfillmentOrderItem[];
+  timeline: OrderTrackingEvent[];
+}
+
+export interface ReturnOrder {
+  id: string;
+  return_number: string;
+  order_id: string;
+  order_number: string;
+  customer_id: string;
+  return_type: 'rto_courier' | 'customer_return';
+  return_reason: string;
+  tracking_reference?: string;
+  disposition: 'restocked' | 'damaged_quarantine' | 'merchant_claim' | 'scrapped';
+  target_location_id?: string | null;
+  condition_notes: string;
+  processed_by_id: string;
+  processed_by_name: string;
+  created_at: string;
+}
+
+export interface ReturnOrderEnriched extends ReturnOrder {
+  customer_brand: string;
+  consignee_name: string;
+  city: string;
+  target_location_name: string | null;
+}
+
+export interface BillingRateCard {
+  id: string;
+  customer_id?: string | null;
+  name: string;
+  base_courier_fee: number;
+  per_kg_fee: number;
+  pick_pack_fee_per_unit: number;
+  daily_storage_fee_per_cbm: number;
+  return_processing_fee: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+// Phase 7 Interfaces
+export interface PickingBatch {
+  id: string;
+  batch_number: string;
+  status: 'active' | 'completed' | 'cancelled';
+  order_ids: string[];
+  total_units_count: number;
+  picked_units_count: number;
+  created_by_user_id: string;
+  created_by_name: string;
+  created_at: string;
+  completed_at?: string | null;
+}
+
+export interface PickingBatchDetails {
+  batch: PickingBatch;
+  orders: Array<{
+    id: string;
+    order_number: string;
+    customer_reference?: string;
+    consignee_name: string;
+    city: string;
+    status: string;
+    total_pieces: number;
+  }>;
+  pickLocations: Array<{
+    locationId: string | null;
+    locationCode: string;
+    locationPath: string;
+    warehouseId: string | null;
+    items: Array<{
+      productId: string;
+      sku: string;
+      productName: string;
+      totalUnitsRequired: number;
+      pickedUnitsCount: number;
+      units: Array<{
+        unitId: string;
+        trackingCode: string;
+        state: string;
+        orderId: string;
+        orderNumber: string;
+        consigneeName: string;
+      }>;
+    }>;
+  }>;
+  totalUnits: number;
+  pickedUnits: number;
+  isComplete: boolean;
+}
+
+export interface ShippingLabelData {
+  orderId: string;
+  orderNumber: string;
+  customerReference: string;
+  consigneeName: string;
+  consigneePhone: string;
+  consigneeEmail: string;
+  shippingAddress: string;
+  city: string;
+  province: string;
+  postalCode: string;
+  codAmount: number;
+  paymentMethod: 'cod' | 'prepaid';
+  totalPieces: number;
+  shippingNotes: string;
+  shipper: {
+    brandName: string;
+    businessName: string;
+    city: string;
+    phone: string;
+  };
+  items: Array<{
+    sku: string;
+    name: string;
+    quantity: number;
+  }>;
+  createdAt: string;
+}
+
+// Phase 5 Interfaces
+export interface Product {
+  id: string;
+  customer_id: string;
+  sku: string;
+  name: string;
+  description?: string;
+  category?: string;
+  barcode?: string;
+  dimensions: {
+    length_cm: number;
+    width_cm: number;
+    height_cm: number;
+  };
+  weight_kg: number;
+  declared_value: number;
+  low_stock_threshold: number;
+  status: 'active' | 'archived';
+  created_at: string;
+  updated_at: string;
+}
+
+export interface EnrichedProduct extends Product {
+  customer_brand?: string;
+  customer_name?: string;
+  on_hand_units: number;
+  in_storage_units: number;
+  awaiting_stocking_units: number;
+  reserved_units: number;
+  damaged_units: number;
+  is_low_stock: boolean;
+}
+
+export type InventoryUnitState =
+  | 'awaiting_stocking'
+  | 'in_storage'
+  | 'reserved'
+  | 'picked'
+  | 'at_packing'
+  | 'packed'
+  | 'fulfilled'
+  | 'returned'
+  | 'damaged'
+  | 'lost';
+
+export interface InventoryUnit {
+  id: string;
+  tracking_code: string;
+  product_id: string;
+  customer_id: string;
+  location_id: string | null;
+  warehouse_id: string | null;
+  batch_id: string;
+  state: InventoryUnitState;
+  condition: 'good' | 'damaged';
+  notes?: string;
+  received_at: string;
+  stocked_at?: string | null;
+  updated_at: string;
+}
+
+export interface EnrichedInventoryUnit extends InventoryUnit {
+  product_name: string;
+  product_sku: string;
+  customer_brand: string;
+  location_name?: string;
+  location_code?: string;
+  location_path?: string;
+  warehouse_name?: string;
+}
+
+export interface ReceivingBatch {
+  id: string;
+  batch_number: string;
+  customer_id: string;
+  warehouse_id: string;
+  carrier?: string;
+  tracking_reference?: string;
+  total_units: number;
+  stocked_units: number;
+  status: 'received' | 'partially_stocked' | 'completed';
+  created_by_id: string;
+  created_by_name: string;
+  created_at: string;
+}
+
+export interface InventoryTransaction {
+  id: string;
+  unit_id: string;
+  tracking_code: string;
+  product_id: string;
+  customer_id: string;
+  type: 'RECEIVE' | 'STOCK' | 'MOVE' | 'RESERVE' | 'PICK' | 'PACK' | 'FULFILL' | 'RETURN' | 'DAMAGE' | 'LOSS' | 'ADJUST';
+  from_location_id: string | null;
+  to_location_id: string | null;
+  from_state: string;
+  to_state: string;
+  actor_id: string;
+  actor_name: string;
+  notes: string;
+  created_at: string;
+}
+
+export interface UnitLabelData {
+  unitId: string;
+  trackingCode: string;
+  productName: string;
+  productSku: string;
+  customerBrand: string;
+  receivedAt: string;
+  condition: string;
+  barcodeValue: string;
+  qrPayload: string;
+}
+
+// Phase 6: Fulfillment Orders Interfaces
+export type FulfillmentOrderStatus =
+  | 'placed'
+  | 'confirmed'
+  | 'to_fulfill'
+  | 'picked'
+  | 'packed'
+  | 'fulfilled'
+  | 'cancelled';
+
+export interface FulfillmentOrder {
+  id: string;
+  order_number: string;
+  customer_id: string;
+  customer_reference?: string;
+  customer_brand?: string;
+  customer_business_name?: string;
+  status: FulfillmentOrderStatus;
+  consignee_name: string;
+  consignee_phone: string;
+  consignee_email?: string;
+  shipping_address: string;
+  city: string;
+  province?: string;
+  postal_code?: string;
+  cod_amount: number;
+  payment_method: 'cod' | 'prepaid';
+  declared_total_value: number;
+  shipping_notes?: string;
+  items_count?: number;
+  total_pieces?: number;
+  items_preview?: string;
+  stock_adequacy?: 'sufficient' | 'partial' | 'out_of_stock';
+  created_by_user_id: string;
+  created_by_name: string;
+  confirmed_by_user_id?: string;
+  confirmed_by_name?: string;
+  confirmed_at?: string;
+  cancelled_by_user_id?: string;
+  cancelled_by_name?: string;
+  cancelled_at?: string;
+  cancellation_reason?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface FulfillmentOrderItem {
+  id: string;
+  order_id: string;
+  product_id: string;
+  sku: string;
+  product_name: string;
+  quantity: number;
+  unit_price: number;
+  total_price: number;
+  category?: string;
+  barcode?: string;
+  weight_kg?: number;
+  dimensions?: {
+    length_cm: number;
+    width_cm: number;
+    height_cm: number;
+  };
+  stock_summary?: {
+    inStorage: number;
+    reserved: number;
+    awaitingStocking: number;
+    availableToFulfill: number;
+  };
+  stock_sufficient?: boolean;
+  created_at: string;
+}
+
+export interface CsvOrderItemPreview {
+  sku: string;
+  productName: string;
+  productId: string;
+  quantity: number;
+  unitPrice: number;
+  availableStock: number;
+  isValid: boolean;
+  error?: string;
+}
+
+export interface CsvOrderPreview {
+  tempId: string;
+  rowIndices: number[];
+  customerReference?: string;
+  consigneeName: string;
+  consigneePhone: string;
+  consigneeEmail?: string;
+  shippingAddress: string;
+  city: string;
+  province?: string;
+  postalCode?: string;
+  codAmount: number;
+  paymentMethod: 'cod' | 'prepaid';
+  shippingNotes?: string;
+  items: CsvOrderItemPreview[];
+  totalPieces: number;
+  totalDeclaredValue: number;
+  isValid: boolean;
+  errors: Array<{ field: string; message: string; hint: string }>;
+  warnings: string[];
+}
+
+export interface CsvPreviewResult {
+  summary: {
+    totalRows: number;
+    totalOrders: number;
+    validOrdersCount: number;
+    invalidOrdersCount: number;
+    totalPieces: number;
+    totalCodAmount: number;
+  };
+  customerId: string;
+  customerName: string;
+  orders: CsvOrderPreview[];
+  canCommit: boolean;
 }
 
 export const api = new ApiClient();

@@ -211,6 +211,263 @@ export interface WarehouseLocationRow {
   updated_at: string;
 }
 
+// Phase 5: Products, Physical Units & Inventory Ledger
+export interface ProductRow {
+  id: string;
+  customer_id: string;
+  sku: string;
+  name: string;
+  description?: string;
+  category?: string;
+  barcode?: string;
+  dimensions: {
+    length_cm: number;
+    width_cm: number;
+    height_cm: number;
+  };
+  weight_kg: number;
+  declared_value: number;
+  low_stock_threshold: number;
+  status: 'active' | 'archived';
+  created_at: string;
+  updated_at: string;
+}
+
+export type InventoryUnitState =
+  | 'awaiting_stocking'
+  | 'in_storage'
+  | 'reserved'
+  | 'picked'
+  | 'at_packing'
+  | 'packed'
+  | 'fulfilled'
+  | 'returned'
+  | 'damaged'
+  | 'lost';
+
+export interface InventoryUnitRow {
+  id: string;
+  tracking_code: string; // e.g. UNIT-E8B2-9F1C
+  product_id: string;
+  customer_id: string;
+  location_id: string | null;
+  warehouse_id: string | null;
+  batch_id: string;
+  state: InventoryUnitState;
+  condition: 'good' | 'damaged';
+  notes?: string;
+  order_id?: string | null;
+  order_item_id?: string | null;
+  received_at: string;
+  stocked_at?: string | null;
+  updated_at: string;
+}
+
+export type InventoryTransactionType =
+  | 'RECEIVE'
+  | 'STOCK'
+  | 'MOVE'
+  | 'RESERVE'
+  | 'PICK'
+  | 'PACK'
+  | 'FULFILL'
+  | 'RETURN'
+  | 'DAMAGE'
+  | 'LOSS'
+  | 'ADJUST';
+
+export interface InventoryTransactionRow {
+  id: string;
+  unit_id: string;
+  tracking_code: string;
+  product_id: string;
+  customer_id: string;
+  type: InventoryTransactionType;
+  from_location_id: string | null;
+  to_location_id: string | null;
+  from_state: string;
+  to_state: string;
+  actor_id: string;
+  actor_name: string;
+  notes: string;
+  created_at: string;
+}
+
+export interface ReceivingBatchRow {
+  id: string;
+  batch_number: string; // e.g. RCV-20260923-0001
+  customer_id: string;
+  warehouse_id: string;
+  carrier?: string;
+  tracking_reference?: string;
+  total_units: number;
+  stocked_units: number;
+  status: 'received' | 'partially_stocked' | 'completed';
+  created_by_id: string;
+  created_by_name: string;
+  created_at: string;
+}
+
+// -------------------------------------------------------------
+// Fulfillment Orders Module
+// -------------------------------------------------------------
+
+export type FulfillmentOrderStatus =
+  | 'placed'        // Created by customer or staff; awaiting confirmation review
+  | 'confirmed'     // Confirmed by staff; queued for fulfillment allocation
+  | 'to_fulfill'    // Allocated in picking session batch (Phase 7)
+  | 'picked'        // Scanned out from shelves (Phase 7)
+  | 'packed'        // Packed at packing station with barcode scan (Phase 7)
+  | 'fulfilled'     // Handed over to courier/dispatched (Phase 7)
+  | 'cancelled';    // Cancelled with mandatory audit reason
+
+export interface FulfillmentOrderRow {
+  id: string;
+  order_number: string; // e.g. ORD-202609-0001
+  customer_id: string; // references customer_profiles.id
+  customer_reference?: string; // external store ref e.g. #SHOPIFY-1029
+  status: FulfillmentOrderStatus;
+
+  // Consignee details
+  consignee_name: string;
+  consignee_phone: string;
+  consignee_email?: string;
+  shipping_address: string;
+  city: string;
+  province?: string;
+  postal_code?: string;
+
+  // Financial details
+  cod_amount: number; // in PKR (0 for prepaid)
+  payment_method: 'cod' | 'prepaid';
+  declared_total_value: number; // sum of line item values
+
+  // Shipping notes
+  shipping_notes?: string;
+
+  // Audit and actor tracking
+  created_by_user_id: string;
+  created_by_name: string;
+  confirmed_by_user_id?: string;
+  confirmed_by_name?: string;
+  confirmed_at?: string;
+  cancelled_by_user_id?: string;
+  cancelled_by_name?: string;
+  cancelled_at?: string;
+  cancellation_reason?: string;
+
+  created_at: string;
+  updated_at: string;
+}
+
+export interface FulfillmentOrderItemRow {
+  id: string;
+  order_id: string; // references fulfillment_orders.id
+  product_id: string; // references products.id
+  sku: string; // SKU code snapshot
+  product_name: string; // product name snapshot
+  quantity: number; // quantity of units ordered
+  unit_price: number; // snapshot unit price in PKR
+  total_price: number; // quantity * unit_price
+  created_at: string;
+}
+
+export interface PickingBatchRow {
+  id: string;
+  batch_number: string; // e.g. PICK-202609-0001
+  status: 'active' | 'completed' | 'cancelled';
+  order_ids: string[];
+  total_units_count: number;
+  picked_units_count: number;
+  created_by_user_id: string;
+  created_by_name: string;
+  created_at: string;
+  completed_at?: string | null;
+}
+
+// -------------------------------------------------------------
+// Phase 8: Dispatch Manifests, Tracking, Returns & Automated Billing
+// -------------------------------------------------------------
+
+export interface DispatchManifestRow {
+  id: string;
+  manifest_number: string; // e.g. MNF-202609-0001
+  carrier_name: string; // e.g. "TCS Express", "Leopard Courier", "Trax Logistics", "M&P", "Call Courier"
+  driver_name?: string;
+  driver_phone?: string;
+  vehicle_number?: string;
+  handover_notes?: string;
+  order_ids: string[];
+  total_orders: number;
+  total_cod_amount: number;
+  status: 'draft' | 'signed_dispatched' | 'closed';
+  created_by_id: string;
+  created_by_name: string;
+  dispatched_at?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type OrderTrackingStatus =
+  | 'placed'
+  | 'confirmed'
+  | 'to_fulfill'
+  | 'picked'
+  | 'packed'
+  | 'dispatched'
+  | 'in_transit'
+  | 'out_for_delivery'
+  | 'delivered'
+  | 'undelivered_attempt'
+  | 'rto_in_transit'
+  | 'returned_to_warehouse'
+  | 'cancelled';
+
+export interface OrderTrackingEventRow {
+  id: string;
+  order_id: string;
+  order_number: string;
+  status: OrderTrackingStatus;
+  location: string; // e.g. "Islamabad Fulfillment Hub", "Rawalpindi Gateway Hub", "Karachi Regional Hub"
+  description: string;
+  actor_id?: string | null;
+  actor_name?: string | null;
+  created_at: string;
+}
+
+export type ReturnDisposition = 'restocked' | 'damaged_quarantine' | 'merchant_claim' | 'scrapped';
+
+export interface ReturnOrderRow {
+  id: string;
+  return_number: string; // e.g. RTN-202609-0001
+  order_id: string;
+  order_number: string;
+  customer_id: string;
+  return_type: 'rto_courier' | 'customer_return'; // Courier undelivered bounce vs Customer reverse pickup
+  return_reason: string;
+  tracking_reference?: string;
+  disposition: ReturnDisposition;
+  target_location_id?: string | null; // Location if restocked
+  condition_notes: string;
+  processed_by_id: string;
+  processed_by_name: string;
+  created_at: string;
+}
+
+export interface BillingRateCardRow {
+  id: string;
+  customer_id?: string | null; // null = global default rate card
+  name: string;
+  base_courier_fee: number; // e.g. 200 PKR
+  per_kg_fee: number; // e.g. 50 PKR/kg
+  pick_pack_fee_per_unit: number; // e.g. 35 PKR per unit picked & packed
+  daily_storage_fee_per_cbm: number; // e.g. 15 PKR per m3 per day
+  return_processing_fee: number; // e.g. 50 PKR per RTO unit
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 // Master schema container
 export interface DatabaseSchema {
   users: UserRow[];
@@ -228,9 +485,25 @@ export interface DatabaseSchema {
   warehouses: WarehouseRow[];
   storage_templates: StorageTemplateRow[];
   warehouse_locations: WarehouseLocationRow[];
+  products: ProductRow[];
+  inventory_units: InventoryUnitRow[];
+  inventory_transactions: InventoryTransactionRow[];
+  receiving_batches: ReceivingBatchRow[];
+  fulfillment_orders: FulfillmentOrderRow[];
+  fulfillment_order_items: FulfillmentOrderItemRow[];
+  picking_batches: PickingBatchRow[];
+  dispatch_manifests: DispatchManifestRow[];
+  order_tracking_events: OrderTrackingEventRow[];
+  return_orders: ReturnOrderRow[];
+  billing_rate_cards: BillingRateCardRow[];
 }
 
-const DATA_DIR = path.resolve(process.cwd(), 'data');
+import { fetchStateFromSupabase, syncStateToSupabase, isSupabaseConfigured } from './supabase.js';
+
+const isVercel = Boolean(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME);
+const DATA_DIR = isVercel
+  ? path.resolve('/tmp', 'ship_asaan_data')
+  : path.resolve(process.cwd(), 'data');
 const DB_FILE = path.join(DATA_DIR, 'ship_asaan_db.json');
 
 // Memory cache of DB for atomic synchronous transactions
@@ -238,9 +511,51 @@ let dbCache: DatabaseSchema | null = null;
 let writeQueue: Promise<void> = Promise.resolve();
 
 function ensureDataDir(): void {
-  if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
+  try {
+    if (!fs.existsSync(DATA_DIR)) {
+      fs.mkdirSync(DATA_DIR, { recursive: true });
+    }
+  } catch (err: any) {
+    console.warn('[DB] ensureDataDir warning:', err?.message);
   }
+}
+
+export async function initDatabase(): Promise<DatabaseSchema> {
+  if (isSupabaseConfigured()) {
+    try {
+      const cloudDb = await fetchStateFromSupabase();
+      if (cloudDb) {
+        dbCache = cloudDb;
+        ensureCollections(dbCache);
+        persistDbSync();
+        return dbCache;
+      }
+    } catch (err: any) {
+      console.warn('[DB] Cloud state fetch failed, falling back to local storage:', err?.message);
+    }
+  }
+  return getDb();
+}
+
+function ensureCollections(cache: DatabaseSchema): void {
+  if (!cache.customer_profiles) cache.customer_profiles = [];
+  if (!cache.employee_profiles) cache.employee_profiles = [];
+  if (!cache.wallet_accounts) cache.wallet_accounts = [];
+  if (!cache.wallet_transactions) cache.wallet_transactions = [];
+  if (!cache.warehouses) cache.warehouses = [];
+  if (!cache.storage_templates) cache.storage_templates = [];
+  if (!cache.warehouse_locations) cache.warehouse_locations = [];
+  if (!cache.products) cache.products = [];
+  if (!cache.inventory_units) cache.inventory_units = [];
+  if (!cache.inventory_transactions) cache.inventory_transactions = [];
+  if (!cache.receiving_batches) cache.receiving_batches = [];
+  if (!cache.fulfillment_orders) cache.fulfillment_orders = [];
+  if (!cache.fulfillment_order_items) cache.fulfillment_order_items = [];
+  if (!cache.picking_batches) cache.picking_batches = [];
+  if (!cache.dispatch_manifests) cache.dispatch_manifests = [];
+  if (!cache.order_tracking_events) cache.order_tracking_events = [];
+  if (!cache.return_orders) cache.return_orders = [];
+  if (!cache.billing_rate_cards) cache.billing_rate_cards = [];
 }
 
 export function getDb(): DatabaseSchema {
@@ -254,13 +569,7 @@ export function getDb(): DatabaseSchema {
     try {
       const raw = fs.readFileSync(DB_FILE, 'utf-8');
       dbCache = JSON.parse(raw);
-      if (!dbCache!.customer_profiles) dbCache!.customer_profiles = [];
-      if (!dbCache!.employee_profiles) dbCache!.employee_profiles = [];
-      if (!dbCache!.wallet_accounts) dbCache!.wallet_accounts = [];
-      if (!dbCache!.wallet_transactions) dbCache!.wallet_transactions = [];
-      if (!dbCache!.warehouses) dbCache!.warehouses = [];
-      if (!dbCache!.storage_templates) dbCache!.storage_templates = [];
-      if (!dbCache!.warehouse_locations) dbCache!.warehouse_locations = [];
+      ensureCollections(dbCache!);
       return dbCache!;
     } catch (err) {
       console.error('[DB] Error loading database file, initializing clean structure:', err);
@@ -282,7 +591,18 @@ export function getDb(): DatabaseSchema {
     wallet_transactions: [],
     warehouses: [],
     storage_templates: [],
-    warehouse_locations: []
+    warehouse_locations: [],
+    products: [],
+    inventory_units: [],
+    inventory_transactions: [],
+    receiving_batches: [],
+    fulfillment_orders: [],
+    fulfillment_order_items: [],
+    picking_batches: [],
+    dispatch_manifests: [],
+    order_tracking_events: [],
+    return_orders: [],
+    billing_rate_cards: []
   };
 
   persistDbSync();
@@ -291,10 +611,21 @@ export function getDb(): DatabaseSchema {
 
 export function persistDbSync(): void {
   if (!dbCache) return;
-  ensureDataDir();
-  const tmpFile = `${DB_FILE}.tmp.${Date.now()}`;
-  fs.writeFileSync(tmpFile, JSON.stringify(dbCache, null, 2), 'utf-8');
-  fs.renameSync(tmpFile, DB_FILE);
+  try {
+    ensureDataDir();
+    const tmpFile = `${DB_FILE}.tmp.${Date.now()}`;
+    fs.writeFileSync(tmpFile, JSON.stringify(dbCache, null, 2), 'utf-8');
+    fs.renameSync(tmpFile, DB_FILE);
+  } catch (err: any) {
+    console.warn('[DB] Local file persist note:', err?.message);
+  }
+
+  // Non-blocking sync to Supabase if configured
+  if (isSupabaseConfigured()) {
+    syncStateToSupabase(dbCache).catch((err) => {
+      console.warn('[DB] Supabase async sync warning:', err);
+    });
+  }
 }
 
 /**
@@ -307,6 +638,9 @@ export async function withTransaction<T>(fn: (db: DatabaseSchema) => Promise<T> 
   const currentOp = writeQueue.then(async () => {
     result = await fn(db);
     persistDbSync();
+    if (isSupabaseConfigured()) {
+      await syncStateToSupabase(db);
+    }
     return result;
   });
 

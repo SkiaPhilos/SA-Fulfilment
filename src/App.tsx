@@ -9,6 +9,9 @@ import { RoleManagementView } from './components/roles/RoleManagementView';
 import { StaffWalletManagementView } from './components/wallet/StaffWalletManagementView';
 import { CustomerWalletView } from './components/wallet/CustomerWalletView';
 import { WarehouseListView } from './components/warehouses/WarehouseListView';
+import { InventoryManagementView } from './components/inventory/InventoryManagementView';
+import { FulfillmentOrderListView } from './components/orders/FulfillmentOrderListView';
+import { DispatchDashboardView } from './components/dispatch/DispatchDashboardView';
 import { SystemFoundationView } from './components/SystemFoundationView';
 import { DesignSystemShowcase } from './components/DesignSystemShowcase';
 
@@ -107,6 +110,9 @@ export default function App() {
           ? <CustomerWalletView user={user} />
           : <StaffWalletManagementView user={user} />
       )}
+      {currentTab === 'orders' && <FulfillmentOrderListView user={user} />}
+      {currentTab === 'dispatch' && <DispatchDashboardView user={user} />}
+      {currentTab === 'inventory' && <InventoryManagementView user={user} />}
       {currentTab === 'warehouses' && <WarehouseListView />}
       {currentTab === 'customers' && <CustomerListView user={user} />}
       {currentTab === 'employees' && <EmployeeListView user={user} />}

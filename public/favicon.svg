@@ -1,0 +1,90 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <linearGradient id="purpleBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#381575" />
+      <stop offset="100%" stop-color="#240A50" />
+    </linearGradient>
+    <linearGradient id="limeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#84CC16" />
+      <stop offset="100%" stop-color="#A3E635" />
+    </linearGradient>
+  </defs>
+
+  <!-- Squircle Background -->
+  <rect width="512" height="512" rx="120" fill="url(#purpleBg)" />
+
+  <!-- Warehouse Shelter Gable (White Hex Outline) -->
+  <path
+    d="M 256 124 
+       L 392 188 
+       L 392 284 
+       M 120 284 
+       L 120 188 
+       L 256 124"
+    fill="none"
+    stroke="#FFFFFF"
+    stroke-width="26"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+
+  <!-- Green Speed Stripes (Left side) -->
+  <rect x="80" y="244" width="70" height="20" rx="10" fill="url(#limeGrad)" />
+  <rect x="44" y="278" width="106" height="20" rx="10" fill="url(#limeGrad)" />
+  <rect x="80" y="312" width="70" height="20" rx="10" fill="url(#limeGrad)" />
+
+  <!-- White 3D Isometric Cardboard Box -->
+  <!-- Top Face -->
+  <path
+    d="M 256 200 
+       L 332 238 
+       L 256 276 
+       L 180 238 Z"
+    fill="#FFFFFF"
+  />
+  <!-- Top Face Tape Stripe -->
+  <path
+    d="M 238 191
+       L 274 209
+       L 236 228
+       L 200 210 Z"
+    fill="#2E1065"
+    opacity="0.3"
+  />
+
+  <!-- Left Face -->
+  <path
+    d="M 180 238 
+       L 256 276 
+       L 256 360 
+       L 180 322 Z"
+    fill="#EDE9FE"
+  />
+
+  <!-- Right Face -->
+  <path
+    d="M 256 276 
+       L 332 238 
+       L 332 322 
+       L 256 360 Z"
+    fill="#DDD6FE"
+  />
+
+  <!-- Box Seam/Joint Line -->
+  <line x1="256" y1="276" x2="256" y2="360" stroke="#381575" stroke-width="4" />
+
+  <!-- Lime Green Curved Delivery Arrow -->
+  <path
+    d="M 124 336 
+       C 160 384, 260 396, 360 316"
+    fill="none"
+    stroke="url(#limeGrad)"
+    stroke-width="26"
+    stroke-linecap="round"
+  />
+  <!-- Arrow Head -->
+  <polygon
+    points="356,280 398,348 336,340"
+    fill="url(#limeGrad)"
+  />
+</svg>
