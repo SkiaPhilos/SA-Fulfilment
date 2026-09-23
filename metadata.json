@@ -1,0 +1,6 @@
+{
+  "name": "Ship Asaan Fulfillment Management System",
+  "description": "Production fulfillment and lightweight warehouse operations management system for Ship Asaan Courier + Fulfillment.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

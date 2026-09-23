@@ -1,0 +1,773 @@
+{
+  "users": [
+    {
+      "id": "usr_admin_mudhoe6f_b5f2c5fea0cfbfa1",
+      "email": "admin@shipasaan.com",
+      "password_hash": "8e6043a3e4da5e19d1579fda06d9b3f5bf199dea1a81d251bd0c5b3b68a7c73fe142ff95479947050525324a67b0a7859377a562ddd5acdad883a88b5a555138",
+      "password_salt": "c737f938a2883cdafb6916c033175fe08a015edb0fc08477cd8e5371cd966ef8",
+      "name": "System Administrator",
+      "phone": "+92 300 0000000",
+      "role_id": "role_administrator",
+      "account_type": "staff",
+      "status": "active",
+      "created_at": "2026-09-23T02:33:51.999Z",
+      "updated_at": "2026-09-23T02:33:51.999Z"
+    },
+    {
+      "id": "usr_admin_mudivqhb_ae28886ee954337b",
+      "email": "abdullahsaeed.sam@gmail.com",
+      "password_hash": "577d01f9b38ea36ab003db2d84d17df2c3ccf1516fa23de59eabed7a5cac71c0a6faeba5c43a8b2ecbfbcc7dd0cac14203570b0f63ee22e6755cc59116c63e12",
+      "password_salt": "4638a0712b64497a769b3b487c4ea46875cca6e9c81ef726a1a321f74399e2dd",
+      "name": "System Administrator",
+      "phone": "+92 300 0000000",
+      "role_id": "role_administrator",
+      "account_type": "staff",
+      "status": "active",
+      "created_at": "2026-09-23T03:07:34.150Z",
+      "updated_at": "2026-09-23T03:07:34.150Z"
+    },
+    {
+      "id": "usr_cust_mudj9zbu_1097eca5cc94a353",
+      "email": "merchant@gulahmedretail.pk",
+      "password_hash": "ecf36e632b99f7db038c06e7076bb5c71d417982c398a486eb14923deb078a9ff52c133a89ef6efa32fa632dfc89b6550340b0b41767d3e2ee0c25c53f2e3594",
+      "password_salt": "fc3f93954ba976ac8bf9521edb9c66b23a4c4d775f013e40d8cac5aa10cd2749",
+      "name": "Tariq Gul",
+      "phone": "0321-9876543",
+      "role_id": "role_customer",
+      "account_type": "customer",
+      "status": "pending_approval",
+      "created_at": "2026-09-23T03:18:38.802Z",
+      "updated_at": "2026-09-23T03:18:38.802Z"
+    },
+    {
+      "id": "usr_cust_mudj9zdr_599c6d0ca6cb0ef2",
+      "email": "logistics@alkaramfabrics.com",
+      "password_hash": "f9877d3343fe1acfd0a76f03fe65b1d0926551e795237f738fe2ba41794223b38c9b43a71d3cb34afea284b30cea389b6fd84831cd3546538670f5e54604e8b7",
+      "password_salt": "f0685089aaa21bbaf19abf67b095095fc38864a7da006ba52b123752ae885686",
+      "name": "Faisal Bilwani",
+      "phone": "0300-8765432",
+      "role_id": "role_customer",
+      "account_type": "customer",
+      "status": "active",
+      "created_at": "2026-09-23T03:18:38.802Z",
+      "updated_at": "2026-09-23T03:18:38.802Z"
+    },
+    {
+      "id": "usr_emp_mudj9zfq_f6c1ef17a02dd9b9",
+      "email": "rashid.minhas@shipasaan.com",
+      "password_hash": "2d759c7e705d6e94511694685cb5ce65a9e5ef8415e249cfc10a8fcdddbdd3eddb0cbd205c8da3c80c2a30b045a9fd40c53745de5149a91f3c8e85f90e13fe43",
+      "password_salt": "58c96f8ba94fdd4391d6200d74323eb622813aed5c240550d431d32a53ad6412",
+      "name": "Rashid Minhas",
+      "phone": "0333-1234567",
+      "role_id": "role_employee",
+      "account_type": "staff",
+      "status": "active",
+      "created_at": "2026-09-23T03:18:38.802Z",
+      "updated_at": "2026-09-23T03:18:38.802Z"
+    },
+    {
+      "id": "usr_admin_operator_primary",
+      "email": "isb.rwp.1.pstofficer@gmail.com",
+      "password_hash": "fdd8044685ae0aa9c00f6dad45a7e5c78472920b1e40759649890383039de68446d342b115a0424a686d371c5253c25a862773160f6bd45f580c86bdc227e0c5",
+      "password_salt": "6641ebd45fbb29e132ee3e5f1967fcad66af799d706e2bd83cdae232f9efcacf",
+      "name": "Operations Officer",
+      "phone": "+92 300 0000001",
+      "role_id": "role_administrator",
+      "account_type": "staff",
+      "status": "active",
+      "created_at": "2026-09-23T03:36:11.923Z",
+      "updated_at": "2026-09-23T03:36:11.924Z"
+    }
+  ],
+  "roles": [
+    {
+      "id": "role_administrator",
+      "name": "Administrator",
+      "description": "Superuser with unrestricted access across all modules",
+      "is_system": true,
+      "is_active": true,
+      "created_at": "2026-09-23T02:33:51.999Z",
+      "updated_at": "2026-09-23T02:33:51.999Z"
+    },
+    {
+      "id": "role_manager",
+      "name": "Warehouse Manager",
+      "description": "Operations manager for warehouse, inventory, employees, and fulfillment",
+      "is_system": true,
+      "is_active": true,
+      "created_at": "2026-09-23T02:33:51.999Z",
+      "updated_at": "2026-09-23T02:33:51.999Z"
+    },
+    {
+      "id": "role_employee",
+      "name": "Warehouse Associate",
+      "description": "Warehouse floor staff handling receiving, stocking, picking, and packing",
+      "is_system": true,
+      "is_active": true,
+      "created_at": "2026-09-23T02:33:51.999Z",
+      "updated_at": "2026-09-23T02:33:51.999Z"
+    },
+    {
+      "id": "role_customer",
+      "name": "Merchant / Customer",
+      "description": "Standard client portal role for creating orders, reviewing stock, and managing wallet",
+      "is_system": true,
+      "is_active": true,
+      "created_at": "2026-09-23T02:33:51.999Z",
+      "updated_at": "2026-09-23T02:33:51.999Z"
+    }
+  ],
+  "permissions": [
+    {
+      "id": "perm_mudhoe4e_5b1040379a481693",
+      "code": "employees.view",
+      "module": "Employees",
+      "description": "View employee records and rosters"
+    },
+    {
+      "id": "perm_mudhoe4e_86142a0829d271be",
+      "code": "employees.create",
+      "module": "Employees",
+      "description": "Create and invite new employees"
+    },
+    {
+      "id": "perm_mudhoe4e_d1d0f720df40922c",
+      "code": "employees.edit",
+      "module": "Employees",
+      "description": "Edit employee details and assignments"
+    },
+    {
+      "id": "perm_mudhoe4e_fe0cc0ca7da6277e",
+      "code": "employees.documents",
+      "module": "Employees",
+      "description": "Upload and verify employee KYC/employment documents"
+    },
+    {
+      "id": "perm_mudhoe4e_190b9748405f0ce6",
+      "code": "customers.view",
+      "module": "Customers",
+      "description": "View client/customer accounts"
+    },
+    {
+      "id": "perm_mudhoe4e_d75bba69e725dc60",
+      "code": "customers.approve",
+      "module": "Customers",
+      "description": "Approve, reject, or suspend customer accounts"
+    },
+    {
+      "id": "perm_mudhoe4e_d714a2ed72dc936d",
+      "code": "customers.edit",
+      "module": "Customers",
+      "description": "Edit customer profile and KYC"
+    },
+    {
+      "id": "perm_mudhoe4e_da5d0580b9ff92dc",
+      "code": "customers.kyc",
+      "module": "Customers",
+      "description": "Review confidential customer KYC documents"
+    },
+    {
+      "id": "perm_mudhoe4e_5675584e6081c0df",
+      "code": "warehouses.view",
+      "module": "Warehouses",
+      "description": "View warehouse structures and location trees"
+    },
+    {
+      "id": "perm_mudhoe4e_68471afc81510b0c",
+      "code": "warehouses.create",
+      "module": "Warehouses",
+      "description": "Create warehouses and physical locations"
+    },
+    {
+      "id": "perm_mudhoe4e_83e16c1309c7f954",
+      "code": "warehouses.edit",
+      "module": "Warehouses",
+      "description": "Modify warehouse configurations and storage templates"
+    },
+    {
+      "id": "perm_mudhoe4e_39aa69382000dfec",
+      "code": "inventory.view",
+      "module": "Inventory",
+      "description": "View inventory stocks, units, and availability"
+    },
+    {
+      "id": "perm_mudhoe4e_9c84979bdbc29550",
+      "code": "inventory.receive",
+      "module": "Inventory",
+      "description": "Receive new shipments and create inventory units"
+    },
+    {
+      "id": "perm_mudhoe4e_f852d9a08e8d5b2e",
+      "code": "inventory.stock",
+      "module": "Inventory",
+      "description": "Perform scan-to-place putaway into storage locations"
+    },
+    {
+      "id": "perm_mudhoe4e_37f5e5146e7ca89a",
+      "code": "inventory.move",
+      "module": "Inventory",
+      "description": "Relocate inventory units between physical locations"
+    },
+    {
+      "id": "perm_mudhoe4e_2d931e932c346c68",
+      "code": "inventory.adjust",
+      "module": "Inventory",
+      "description": "Perform manual inventory reconciliations and adjustments"
+    },
+    {
+      "id": "perm_mudhoe4e_20d9d28350f484fb",
+      "code": "inventory.export",
+      "module": "Inventory",
+      "description": "Export inventory datasets in CSV or PDF"
+    },
+    {
+      "id": "perm_mudhoe4f_39685e733aede5fe",
+      "code": "orders.view",
+      "module": "Fulfillment",
+      "description": "View fulfill order queues and statuses"
+    },
+    {
+      "id": "perm_mudhoe4f_cb2debe3079e5f8f",
+      "code": "orders.create",
+      "module": "Fulfillment",
+      "description": "Create new fulfill orders manually or import via CSV"
+    },
+    {
+      "id": "perm_mudhoe4f_60d14d9021b87431",
+      "code": "orders.confirm",
+      "module": "Fulfillment",
+      "description": "Acknowledge and confirm customer fulfill orders"
+    },
+    {
+      "id": "perm_mudhoe4f_d3821035ed17d5bc",
+      "code": "orders.pick",
+      "module": "Fulfillment",
+      "description": "Allocate stock and scan items during picking"
+    },
+    {
+      "id": "perm_mudhoe4f_e1c7fbe8712aecef",
+      "code": "orders.pack",
+      "module": "Fulfillment",
+      "description": "Scan shipping package label to confirm Packed status"
+    },
+    {
+      "id": "perm_mudhoe4f_8ed02323dfbb041b",
+      "code": "orders.cancel",
+      "module": "Fulfillment",
+      "description": "Cancel fulfill orders and release reserved stock"
+    },
+    {
+      "id": "perm_mudhoe4f_9a6b233d468a8366",
+      "code": "orders.export",
+      "module": "Fulfillment",
+      "description": "Export fulfillment order data and reports"
+    },
+    {
+      "id": "perm_mudhoe4f_54a3c1eb2baea9a6",
+      "code": "wallet.view",
+      "module": "Wallet",
+      "description": "View customer wallet balances and ledger entries"
+    },
+    {
+      "id": "perm_mudhoe4f_ab74ba61f536cdb6",
+      "code": "wallet.credit",
+      "module": "Wallet",
+      "description": "Manually credit customer wallet with bank deposit reference"
+    },
+    {
+      "id": "perm_mudhoe4f_e9754bab3013eca5",
+      "code": "wallet.debit",
+      "module": "Wallet",
+      "description": "Perform manual debit or adjustment with mandatory audit note"
+    },
+    {
+      "id": "perm_mudhoe4f_d23c76d3b352d1e4",
+      "code": "wallet.export",
+      "module": "Wallet",
+      "description": "Export wallet transaction ledgers"
+    },
+    {
+      "id": "perm_mudhoe4f_893a2fdcc00561e7",
+      "code": "roles.view",
+      "module": "Roles",
+      "description": "View configured roles and their permissions"
+    },
+    {
+      "id": "perm_mudhoe4f_8f82de625cab16c4",
+      "code": "roles.manage",
+      "module": "Roles",
+      "description": "Create and edit custom roles and assign permissions"
+    },
+    {
+      "id": "perm_mudhoe4f_32114f78e4e9b47e",
+      "code": "roles.assign",
+      "module": "Roles",
+      "description": "Assign roles to users without privilege escalation"
+    },
+    {
+      "id": "perm_mudhoe4f_6feaf10cbaf0ae83",
+      "code": "system.audit",
+      "module": "System",
+      "description": "View full immutable system audit trails"
+    },
+    {
+      "id": "perm_mudhoe4f_2bfb6ab41dc4ee68",
+      "code": "system.settings",
+      "module": "System",
+      "description": "Configure system-wide operational preferences"
+    }
+  ],
+  "role_permissions": [
+    {
+      "role_id": "role_administrator",
+      "permission_code": "employees.view"
+    },
+    {
+      "role_id": "role_administrator",
+      "permission_code": "employees.create"
+    },
+    {
+      "role_id": "role_administrator",
+      "permission_code": "employees.edit"
+    },
+    {
+      "role_id": "role_administrator",
+      "permission_code": "employees.documents"
+    },
+    {
+      "role_id": "role_administrator",
+      "permission_code": "customers.view"
+    },
+    {
+      "role_id": "role_administrator",
+      "permission_code": "customers.approve"
+    },
+    {
+      "role_id": "role_administrator",
+      "permission_code": "customers.edit"
+    },
+    {
+      "role_id": "role_administrator",
+      "permission_code": "customers.kyc"
+    },
+    {
+      "role_id": "role_administrator",
+      "permission_code": "warehouses.view"
+    },
+    {
+      "role_id": "role_administrator",
+      "permission_code": "warehouses.create"
+    },
+    {
+      "role_id": "role_administrator",
+      "permission_code": "warehouses.edit"
+    },
+    {
+      "role_id": "role_administrator",
+      "permission_code": "inventory.view"
+    },
+    {
+      "role_id": "role_administrator",
+      "permission_code": "inventory.receive"
+    },
+    {
+      "role_id": "role_administrator",
+      "permission_code": "inventory.stock"
+    },
+    {
+      "role_id": "role_administrator",
+      "permission_code": "inventory.move"
+    },
+    {
+      "role_id": "role_administrator",
+      "permission_code": "inventory.adjust"
+    },
+    {
+      "role_id": "role_administrator",
+      "permission_code": "inventory.export"
+    },
+    {
+      "role_id": "role_administrator",
+      "permission_code": "orders.view"
+    },
+    {
+      "role_id": "role_administrator",
+      "permission_code": "orders.create"
+    },
+    {
+      "role_id": "role_administrator",
+      "permission_code": "orders.confirm"
+    },
+    {
+      "role_id": "role_administrator",
+      "permission_code": "orders.pick"
+    },
+    {
+      "role_id": "role_administrator",
+      "permission_code": "orders.pack"
+    },
+    {
+      "role_id": "role_administrator",
+      "permission_code": "orders.cancel"
+    },
+    {
+      "role_id": "role_administrator",
+      "permission_code": "orders.export"
+    },
+    {
+      "role_id": "role_administrator",
+      "permission_code": "wallet.view"
+    },
+    {
+      "role_id": "role_administrator",
+      "permission_code": "wallet.credit"
+    },
+    {
+      "role_id": "role_administrator",
+      "permission_code": "wallet.debit"
+    },
+    {
+      "role_id": "role_administrator",
+      "permission_code": "wallet.export"
+    },
+    {
+      "role_id": "role_administrator",
+      "permission_code": "roles.view"
+    },
+    {
+      "role_id": "role_administrator",
+      "permission_code": "roles.manage"
+    },
+    {
+      "role_id": "role_administrator",
+      "permission_code": "roles.assign"
+    },
+    {
+      "role_id": "role_administrator",
+      "permission_code": "system.audit"
+    },
+    {
+      "role_id": "role_administrator",
+      "permission_code": "system.settings"
+    },
+    {
+      "role_id": "role_manager",
+      "permission_code": "employees.view"
+    },
+    {
+      "role_id": "role_manager",
+      "permission_code": "employees.create"
+    },
+    {
+      "role_id": "role_manager",
+      "permission_code": "employees.edit"
+    },
+    {
+      "role_id": "role_manager",
+      "permission_code": "employees.documents"
+    },
+    {
+      "role_id": "role_manager",
+      "permission_code": "customers.view"
+    },
+    {
+      "role_id": "role_manager",
+      "permission_code": "customers.approve"
+    },
+    {
+      "role_id": "role_manager",
+      "permission_code": "customers.edit"
+    },
+    {
+      "role_id": "role_manager",
+      "permission_code": "customers.kyc"
+    },
+    {
+      "role_id": "role_manager",
+      "permission_code": "warehouses.view"
+    },
+    {
+      "role_id": "role_manager",
+      "permission_code": "warehouses.create"
+    },
+    {
+      "role_id": "role_manager",
+      "permission_code": "warehouses.edit"
+    },
+    {
+      "role_id": "role_manager",
+      "permission_code": "inventory.view"
+    },
+    {
+      "role_id": "role_manager",
+      "permission_code": "inventory.receive"
+    },
+    {
+      "role_id": "role_manager",
+      "permission_code": "inventory.stock"
+    },
+    {
+      "role_id": "role_manager",
+      "permission_code": "inventory.move"
+    },
+    {
+      "role_id": "role_manager",
+      "permission_code": "inventory.adjust"
+    },
+    {
+      "role_id": "role_manager",
+      "permission_code": "inventory.export"
+    },
+    {
+      "role_id": "role_manager",
+      "permission_code": "orders.view"
+    },
+    {
+      "role_id": "role_manager",
+      "permission_code": "orders.create"
+    },
+    {
+      "role_id": "role_manager",
+      "permission_code": "orders.confirm"
+    },
+    {
+      "role_id": "role_manager",
+      "permission_code": "orders.pick"
+    },
+    {
+      "role_id": "role_manager",
+      "permission_code": "orders.pack"
+    },
+    {
+      "role_id": "role_manager",
+      "permission_code": "orders.cancel"
+    },
+    {
+      "role_id": "role_manager",
+      "permission_code": "orders.export"
+    },
+    {
+      "role_id": "role_manager",
+      "permission_code": "wallet.view"
+    },
+    {
+      "role_id": "role_manager",
+      "permission_code": "wallet.credit"
+    },
+    {
+      "role_id": "role_manager",
+      "permission_code": "wallet.export"
+    },
+    {
+      "role_id": "role_manager",
+      "permission_code": "roles.view"
+    },
+    {
+      "role_id": "role_manager",
+      "permission_code": "roles.assign"
+    },
+    {
+      "role_id": "role_employee",
+      "permission_code": "warehouses.view"
+    },
+    {
+      "role_id": "role_employee",
+      "permission_code": "inventory.view"
+    },
+    {
+      "role_id": "role_employee",
+      "permission_code": "inventory.receive"
+    },
+    {
+      "role_id": "role_employee",
+      "permission_code": "inventory.stock"
+    },
+    {
+      "role_id": "role_employee",
+      "permission_code": "inventory.move"
+    },
+    {
+      "role_id": "role_employee",
+      "permission_code": "orders.view"
+    },
+    {
+      "role_id": "role_employee",
+      "permission_code": "orders.pick"
+    },
+    {
+      "role_id": "role_employee",
+      "permission_code": "orders.pack"
+    },
+    {
+      "role_id": "role_customer",
+      "permission_code": "inventory.view"
+    },
+    {
+      "role_id": "role_customer",
+      "permission_code": "orders.view"
+    },
+    {
+      "role_id": "role_customer",
+      "permission_code": "orders.create"
+    },
+    {
+      "role_id": "role_customer",
+      "permission_code": "wallet.view"
+    }
+  ],
+  "sessions": [],
+  "password_reset_otps": [],
+  "audit_logs": [
+    {
+      "id": "audit_mudhoe6g_82065000d491af6e",
+      "actor_id": "system",
+      "actor_email": "system",
+      "action": "SYSTEM_BOOTSTRAP",
+      "entity_type": "USER",
+      "entity_id": "usr_admin_mudhoe6f_b5f2c5fea0cfbfa1",
+      "metadata": {
+        "email": "admin@shipasaan.com",
+        "role": "Administrator",
+        "note": "Root administrator account created via environment bootstrap"
+      },
+      "created_at": "2026-09-23T02:33:52.072Z"
+    },
+    {
+      "id": "audit_mudivqhb_3c11a2fbc864f8d2",
+      "actor_id": "system",
+      "actor_email": "system",
+      "action": "SYSTEM_BOOTSTRAP",
+      "entity_type": "USER",
+      "entity_id": "usr_admin_mudivqhb_ae28886ee954337b",
+      "metadata": {
+        "email": "abdullahsaeed.sam@gmail.com",
+        "role": "Administrator",
+        "note": "Root administrator account created via environment bootstrap"
+      },
+      "created_at": "2026-09-23T03:07:34.223Z"
+    },
+    {
+      "id": "audit_mudizxtk_e2f891759107a7a2",
+      "actor_id": "usr_admin_mudivqhb_ae28886ee954337b",
+      "actor_email": "abdullahsaeed.sam@gmail.com",
+      "action": "AUTH_FAILED_LOGIN",
+      "entity_type": "USER",
+      "entity_id": "usr_admin_mudivqhb_ae28886ee954337b",
+      "metadata": {},
+      "ip_address": "169.254.169.126",
+      "created_at": "2026-09-23T03:10:50.360Z"
+    },
+    {
+      "id": "audit_mudjno77_c7687097f1145aa0",
+      "actor_id": "usr_admin_mudhoe6f_b5f2c5fea0cfbfa1",
+      "actor_email": "admin@shipasaan.com",
+      "action": "AUTH_FAILED_LOGIN",
+      "entity_type": "USER",
+      "entity_id": "usr_admin_mudhoe6f_b5f2c5fea0cfbfa1",
+      "metadata": {},
+      "ip_address": "169.254.169.126",
+      "created_at": "2026-09-23T03:29:17.635Z"
+    },
+    {
+      "id": "audit_mudjo0vn_21189847d7c8d5e6",
+      "actor_id": "usr_admin_mudhoe6f_b5f2c5fea0cfbfa1",
+      "actor_email": "admin@shipasaan.com",
+      "action": "AUTH_FAILED_LOGIN",
+      "entity_type": "USER",
+      "entity_id": "usr_admin_mudhoe6f_b5f2c5fea0cfbfa1",
+      "metadata": {},
+      "ip_address": "169.254.169.126",
+      "created_at": "2026-09-23T03:29:34.067Z"
+    },
+    {
+      "id": "audit_mudjop0s_ad3af56f4c48ec4e",
+      "actor_id": "usr_admin_mudhoe6f_b5f2c5fea0cfbfa1",
+      "actor_email": "admin@shipasaan.com",
+      "action": "AUTH_FAILED_LOGIN",
+      "entity_type": "USER",
+      "entity_id": "usr_admin_mudhoe6f_b5f2c5fea0cfbfa1",
+      "metadata": {},
+      "ip_address": "169.254.169.126",
+      "created_at": "2026-09-23T03:30:05.356Z"
+    }
+  ],
+  "system_settings": [],
+  "customer_profiles": [
+    {
+      "id": "cust_mudj9zbu_18e52008df177848",
+      "user_id": "usr_cust_mudj9zbu_1097eca5cc94a353",
+      "business_name": "Gul Ahmed Retail Logistics Pvt Ltd",
+      "brand_name": "Gul Ahmed Studio",
+      "cnic_or_ntn": "NTN-8923401-2",
+      "phone": "0321-9876543",
+      "address": "Plot 45, Landhi Industrial Area",
+      "city": "Karachi",
+      "approval_status": "pending",
+      "bank_name": "Habib Bank Limited",
+      "bank_account_title": "Gul Ahmed Retail Logistics",
+      "bank_iban": "PK36HABB0000123456789012",
+      "completeness_score": 100,
+      "created_at": "2026-09-23T03:18:38.802Z",
+      "updated_at": "2026-09-23T03:18:38.802Z"
+    },
+    {
+      "id": "cust_mudj9zdr_b6eca8997338ea68",
+      "user_id": "usr_cust_mudj9zdr_599c6d0ca6cb0ef2",
+      "business_name": "Al-Karam Studio Logistics Pvt Ltd",
+      "brand_name": "Al-Karam Studio",
+      "cnic_or_ntn": "NTN-3498120-7",
+      "phone": "0300-8765432",
+      "address": "Sector 23, Korangi Industrial Zone",
+      "city": "Karachi",
+      "approval_status": "approved",
+      "reviewed_by": "usr_admin_mudivqhb_ae28886ee954337b",
+      "reviewed_at": "2026-09-23T03:18:38.802Z",
+      "bank_name": "Meezan Bank Limited",
+      "bank_account_title": "Al-Karam Studio Logistics",
+      "bank_iban": "PK12MEZN0000987654321098",
+      "completeness_score": 100,
+      "created_at": "2026-09-23T03:18:38.802Z",
+      "updated_at": "2026-09-23T03:18:38.802Z"
+    }
+  ],
+  "employee_profiles": [
+    {
+      "id": "emp_mudj9z9v_5329f8711c86ef19",
+      "user_id": "usr_admin_mudivqhb_ae28886ee954337b",
+      "designation": "Head of Operations & Technology",
+      "department": "Executive Management",
+      "joining_date": "2025-01-01",
+      "cnic": "35201-1111111-1",
+      "phone": "+92 300 0000000",
+      "address": "Ship Asaan Central Operations Tower, Gulberg III",
+      "city": "Lahore",
+      "cv_uploaded": true,
+      "cnic_uploaded": true,
+      "bank_name": "Meezan Bank Ltd",
+      "bank_account_title": "Ship Asaan Payroll",
+      "bank_iban": "PK36MEZN0001234567890123",
+      "completeness_score": 100,
+      "created_at": "2026-09-23T03:18:38.802Z",
+      "updated_at": "2026-09-23T03:18:38.802Z"
+    },
+    {
+      "id": "emp_mudj9zfq_66f983bca441075f",
+      "user_id": "usr_emp_mudj9zfq_f6c1ef17a02dd9b9",
+      "designation": "Warehouse Inbound Supervisor",
+      "department": "Warehousing & Operations",
+      "joining_date": "2025-02-15",
+      "cnic": "35202-7654321-1",
+      "phone": "0333-1234567",
+      "address": "Flat 4B, Model Town Extension",
+      "city": "Lahore",
+      "cv_uploaded": true,
+      "cnic_uploaded": true,
+      "bank_name": "Bank Alfalah Ltd",
+      "bank_account_title": "Rashid Minhas",
+      "bank_iban": "PK45ALFH0001982347891234",
+      "completeness_score": 100,
+      "created_at": "2026-09-23T03:18:38.802Z",
+      "updated_at": "2026-09-23T03:18:38.802Z"
+    }
+  ]
+}
