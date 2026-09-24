@@ -6,7 +6,7 @@
 
 import {
   withTransaction,
-  getDb,
+  getFreshDb,
   FulfillmentOrderRow,
   FulfillmentOrderItemRow,
   FulfillmentOrderStatus,
@@ -15,6 +15,7 @@ import {
 } from './db.js';
 import { generateId } from './security.js';
 import { logAudit } from './audit.js';
+import { upsertOrderRecord } from './domainDb.js';
 
 export class OrderError extends Error {
   constructor(public code: string, message: string) {
@@ -308,6 +309,7 @@ class OrderService {
       };
 
       db.fulfillment_orders.push(newOrder);
+      upsertOrderRecord(newOrder).catch(e => console.warn('[ORDER] Upsert error:', e));
 
       // Create Line Items Records
       for (const item of orderItemsToCreate) {
@@ -359,7 +361,7 @@ class OrderService {
     csvContent: string,
     customerIdOverride?: string
   ): Promise<CsvPreviewResult> {
-    const db = getDb();
+    const db = await getFreshDb();
 
     // 1. Resolve Customer
     let targetCustomerId: string;
@@ -780,6 +782,7 @@ class OrderService {
 
         db.fulfillment_orders.push(newOrder);
         createdOrderNumbers.push(orderNumber);
+        upsertOrderRecord(newOrder).catch(e => console.warn('[ORDER] Upsert error:', e));
 
         for (const itemData of orderData.items) {
           const lineItemId = `item_${generateId()}`;
@@ -851,6 +854,7 @@ class OrderService {
       order.confirmed_by_name = actor.name;
       order.confirmed_at = now;
       order.updated_at = now;
+      upsertOrderRecord(order).catch(e => console.warn('[ORDER] Upsert error:', e));
 
       logAudit({
         actorId: actor.id,
@@ -902,6 +906,7 @@ class OrderService {
         order.confirmed_at = now;
         order.updated_at = now;
         confirmedCount++;
+        upsertOrderRecord(order).catch(e => console.warn('[ORDER] Upsert error:', e));
       }
 
       if (confirmedCount > 0) {
@@ -968,6 +973,7 @@ class OrderService {
       order.cancelled_at = now;
       order.cancellation_reason = trimReason;
       order.updated_at = now;
+      upsertOrderRecord(order).catch(e => console.warn('[ORDER] Upsert error:', e));
 
       // In case any inventory units were allocated or reserved, release them
       const linkedUnits = db.inventory_units.filter(u => u.order_id === orderId);
@@ -1001,7 +1007,7 @@ class OrderService {
    * List fulfillment orders with rich filtering & stock status indicators
    */
   public async listOrders(actor: ActorContext, filters: OrderFilterOptions = {}) {
-    const db = getDb();
+    const db = await getFreshDb();
 
     let orders = [...db.fulfillment_orders];
 
@@ -1118,7 +1124,7 @@ class OrderService {
    * Get complete details of a single order
    */
   public async getOrderDetails(actor: ActorContext, orderId: string) {
-    const db = getDb();
+    const db = await getFreshDb();
     const order = db.fulfillment_orders.find(o => o.id === orderId);
     if (!order) {
       throw new OrderError('NOT_FOUND', 'Order not found.');

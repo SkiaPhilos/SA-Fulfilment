@@ -5,7 +5,7 @@
 
 import {
   withTransaction,
-  getDb,
+  getFreshDb,
   ProductRow,
   InventoryUnitRow,
   InventoryTransactionRow,
@@ -15,6 +15,7 @@ import {
 } from './db.js';
 import { generateId } from './security.js';
 import { logAudit } from './audit.js';
+import { upsertProductRecord, upsertInventoryUnitRecord } from './domainDb.js';
 
 export class InventoryError extends Error {
   constructor(public code: string, message: string) {
@@ -193,6 +194,7 @@ export const inventoryService = {
       };
 
       db.products.push(product);
+      upsertProductRecord(product).catch(e => console.warn('[PRODUCT] Upsert error:', e));
 
       logAudit({
         actorId: actor.id,
@@ -244,6 +246,7 @@ export const inventoryService = {
       if (input.status !== undefined) product.status = input.status;
 
       product.updated_at = new Date().toISOString();
+      upsertProductRecord(product).catch(e => console.warn('[PRODUCT] Upsert error:', e));
 
       logAudit({
         actorId: actor.id,
@@ -271,7 +274,7 @@ export const inventoryService = {
       status?: 'active' | 'archived';
     }
   ): Promise<EnrichedProduct[]> {
-    const db = getDb();
+    const db = await getFreshDb();
 
     let targetCustomerId = filters?.customerId;
     if (actor.accountType === 'customer') {
@@ -446,6 +449,7 @@ export const inventoryService = {
 
           db.inventory_units.push(unit);
           createdUnits.push(unit);
+          upsertInventoryUnitRecord(unit).catch(e => console.warn('[UNIT] Upsert error:', e));
 
           const ledgerEntry: InventoryTransactionRow = {
             id: generateId('itx'),
@@ -568,6 +572,7 @@ export const inventoryService = {
       unit.warehouse_id = location.warehouse_id;
       unit.stocked_at = now;
       unit.updated_at = now;
+      upsertInventoryUnitRecord(unit).catch(e => console.warn('[UNIT] Upsert error:', e));
 
       // Update location occupied counter
       location.occupied_units = currentUnitsInLoc + 1;
@@ -672,6 +677,7 @@ export const inventoryService = {
       unit.location_id = toLocation.id;
       unit.warehouse_id = toLocation.warehouse_id;
       unit.updated_at = now;
+      upsertInventoryUnitRecord(unit).catch(e => console.warn('[UNIT] Upsert error:', e));
 
       // Update counters
       if (fromLocation) {
@@ -739,6 +745,7 @@ export const inventoryService = {
       if (input.condition) unit.condition = input.condition;
       if (input.state) unit.state = input.state;
       unit.updated_at = now;
+      upsertInventoryUnitRecord(unit).catch(e => console.warn('[UNIT] Upsert error:', e));
 
       // If marked damaged or lost, decrement location occupancy
       if (['damaged', 'lost'].includes(unit.state) && oldState === 'in_storage' && unit.location_id) {
@@ -811,7 +818,7 @@ export const inventoryService = {
     units: EnrichedInventoryUnit[];
     total: number;
   }> {
-    const db = getDb();
+    const db = await getFreshDb();
 
     let targetCustomerId = filters?.customerId;
     if (actor.accountType === 'customer') {
@@ -875,7 +882,7 @@ export const inventoryService = {
    * List Receiving Batches
    */
   async listBatches(actor: ActorContext, customerId?: string): Promise<ReceivingBatchRow[]> {
-    const db = getDb();
+    const db = await getFreshDb();
     let targetCustomerId = customerId;
     if (actor.accountType === 'customer') {
       targetCustomerId = actor.customerProfileId || 'none';
@@ -899,7 +906,7 @@ export const inventoryService = {
       limit?: number;
     }
   ): Promise<InventoryTransactionRow[]> {
-    const db = getDb();
+    const db = await getFreshDb();
     let targetCustomerId = filters?.customerId;
     if (actor.accountType === 'customer') {
       targetCustomerId = actor.customerProfileId || 'none';

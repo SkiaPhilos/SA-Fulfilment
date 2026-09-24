@@ -1,5 +1,5 @@
 import {
-  getDb,
+  getFreshDb,
   withTransaction,
   WarehouseRow,
   StorageTemplateRow,
@@ -9,6 +9,7 @@ import {
 } from './db.js';
 import { generateId } from './security.js';
 import { logAudit } from './audit.js';
+import { upsertWarehouseRecord, upsertLocationRecord } from './domainDb.js';
 import QRCode from 'qrcode';
 
 export interface LocationTreeNode extends WarehouseLocationRow {
@@ -39,7 +40,7 @@ export const warehouseService = {
   // Warehouse Infrastructure
   // ----------------------------------------------------
   async listWarehouses(): Promise<(WarehouseRow & { total_locations: number; total_capacity_units: number; occupied_units: number })[]> {
-    const db = getDb();
+    const db = await getFreshDb();
     return db.warehouses.map((wh) => {
       const locs = db.warehouse_locations.filter((l) => l.warehouse_id === wh.id);
       const totalCapacity = locs.reduce((sum, l) => sum + (l.max_units || 0), 0);
@@ -54,7 +55,7 @@ export const warehouseService = {
   },
 
   async getWarehouseById(id: string): Promise<WarehouseRow | null> {
-    const db = getDb();
+    const db = await getFreshDb();
     return db.warehouses.find((w) => w.id === id) || null;
   },
 
@@ -93,6 +94,7 @@ export const warehouseService = {
       };
 
       db.warehouses.push(warehouse);
+      upsertWarehouseRecord(warehouse).catch(e => console.warn('[WAREHOUSE] Upsert error:', e));
 
       logAudit({
         actorId: actor.id,
@@ -140,6 +142,7 @@ export const warehouseService = {
       };
 
       db.warehouses[index] = updated;
+      upsertWarehouseRecord(updated).catch(e => console.warn('[WAREHOUSE] Upsert error:', e));
 
       logAudit({
         actorId: actor.id,
@@ -158,7 +161,7 @@ export const warehouseService = {
   // Storage Templates
   // ----------------------------------------------------
   async listStorageTemplates(): Promise<StorageTemplateRow[]> {
-    const db = getDb();
+    const db = await getFreshDb();
     return [...db.storage_templates];
   },
 
@@ -236,7 +239,7 @@ export const warehouseService = {
   // Location Hierarchy & Traversal
   // ----------------------------------------------------
   async getLocationTree(warehouseId: string): Promise<LocationTreeNode[]> {
-    const db = getDb();
+    const db = await getFreshDb();
     const locations = db.warehouse_locations.filter((l) => l.warehouse_id === warehouseId);
 
     // Build children map
@@ -279,7 +282,7 @@ export const warehouseService = {
   },
 
   async getLocationById(id: string): Promise<(WarehouseLocationRow & { breadcrumbs: { id: string; name: string; code: string; type: LocationType }[] }) | null> {
-    const db = getDb();
+    const db = await getFreshDb();
     const loc = db.warehouse_locations.find((l) => l.id === id);
     if (!loc) return null;
 
@@ -295,7 +298,6 @@ export const warehouseService = {
       });
       current = current.parent_id ? db.warehouse_locations.find((l) => l.id === current!.parent_id) : undefined;
     }
-
     return {
       ...loc,
       breadcrumbs
@@ -386,6 +388,7 @@ export const warehouseService = {
       };
 
       db.warehouse_locations.push(location);
+      upsertLocationRecord(location).catch(e => console.warn('[LOCATION] Upsert error:', e));
 
       logAudit({
         actorId: actor.id,
@@ -486,6 +489,7 @@ export const warehouseService = {
 
         db.warehouse_locations.push(newLoc);
         createdLocations.push(newLoc);
+        upsertLocationRecord(newLoc).catch(e => console.warn('[LOCATION] Upsert error:', e));
       }
 
       logAudit({
@@ -545,6 +549,7 @@ export const warehouseService = {
       };
 
       db.warehouse_locations[idx] = updated;
+      upsertLocationRecord(updated).catch(e => console.warn('[LOCATION] Upsert error:', e));
 
       logAudit({
         actorId: actor.id,
@@ -614,7 +619,7 @@ export const warehouseService = {
     qrDataUrl: string;
     barcodeString: string;
   }> {
-    const db = getDb();
+    const db = await getFreshDb();
     const location = db.warehouse_locations.find((l) => l.id === locationId);
     if (!location) {
       throw new Error('Location not found.');

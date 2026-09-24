@@ -613,6 +613,26 @@ export function getDb(): DatabaseSchema {
   return dbCache;
 }
 
+/**
+ * Fetch fresh database schema directly from Supabase relational tables.
+ * Prevents warm Vercel instances from operating on stale in-memory state.
+ */
+export async function getFreshDb(): Promise<DatabaseSchema> {
+  if (isSupabaseConfigured()) {
+    try {
+      const fresh = await fetchStateFromSupabase();
+      if (fresh) {
+        dbCache = fresh;
+        ensureCollections(dbCache);
+        return dbCache;
+      }
+    } catch (err: any) {
+      console.warn('[DB] Failed to refresh from Supabase:', err?.message);
+    }
+  }
+  return getDb();
+}
+
 export function persistDbSync(): void {
   if (!dbCache) return;
 
@@ -637,17 +657,35 @@ export function persistDbSync(): void {
 }
 
 /**
- * Concurrency-safe atomic transaction runner
+ * Concurrency-safe atomic transaction runner.
+ * Always fetches fresh state from PostgreSQL relational tables before mutation
+ * to ensure multi-instance cross-process consistency.
  */
 export async function withTransaction<T>(fn: (db: DatabaseSchema) => Promise<T> | T): Promise<T> {
-  const db = getDb();
   let result: T;
 
   const currentOp = writeQueue.then(async () => {
+    // 1. Fetch latest PostgreSQL state across serverless instances
+    if (isSupabaseConfigured()) {
+      try {
+        const fresh = await fetchStateFromSupabase();
+        if (fresh) {
+          dbCache = fresh;
+          ensureCollections(dbCache);
+        }
+      } catch (err: any) {
+        console.warn('[DB] Failed to pre-fetch fresh state in transaction:', err?.message);
+      }
+    }
+
+    const db = getDb();
     result = await fn(db);
-    persistDbSync();
+
+    // 2. Persist directly to PostgreSQL relational tables
     if (isSupabaseConfigured()) {
       await syncStateToSupabase(db);
+    } else {
+      persistDbSync();
     }
     return result;
   });

@@ -15,6 +15,30 @@ This plan organizes the complete build of the Ship Asaan Courier + Fulfillment s
 
 ---
 
+## Architecture Remediation — In Progress
+*Critical priority: All 6 items must be fixed in sequence before proceeding to polish or new features. Items 1 and 2 are blocking prerequisites for all subsequent operations.*
+
+- [ ] **Remediation Item 1: Relational Source of Truth (Eliminate JSON Blob Dual-Architecture)**
+  - Fully eliminate `ship_asaan_snapshots` and in-memory `dbCache` as the source of truth for reads.
+  - Convert all read operations in `authDb.ts`, `domainDb.ts`, `walletService.ts`, `warehouseService.ts`, `inventoryService.ts`, `orderService.ts`, and `dispatchService.ts` to direct relational queries against Supabase PostgreSQL tables.
+- [ ] **Remediation Item 2: Eliminate Warm-Instance State Caching Across Requests**
+  - Deprecate module-level mutable caching in `api/index.ts` and `server/middleware.ts`.
+  - Validate sessions, users, and permissions per-request via direct queries to the `sessions`, `users`, `roles`, and `role_permissions` tables in PostgreSQL.
+  - Ensure zero dependence on local process memory between requests.
+- [ ] **Remediation Item 3: Remove All Silent Data Truncation**
+  - Remove all `.slice(-500)` and arbitrary audit log/unit caps.
+  - Implement full relational reads and writes with indexed pagination.
+- [ ] **Remediation Item 4: Strict CORS Allowlist Enforcement**
+  - Remove insecure `Origin` header reflection with `Access-Control-Allow-Credentials: true`.
+  - Implement strict whitelist matching using `ALLOWED_ORIGINS` environment variable and trusted production/development origins.
+- [ ] **Remediation Item 5: Persistent Shared Rate Limiting**
+  - Replace in-memory `Map` rate limiter with persistent storage (Supabase `rate_limits` table with atomic counter or sliding window) so rate limits are globally enforced across all serverless instances.
+- [ ] **Remediation Item 6: Genuine Private Document Storage via Supabase Storage**
+  - Replace fake boolean flags (`cv_uploaded`, `cnic_uploaded`) with real multipart file upload endpoints.
+  - Store files securely in a private Supabase Storage bucket (`documents`) and generate short-lived, time-limited signed URLs for authorized document retrieval.
+
+---
+
 ## Phase Breakdown
 
 ### Phase 1: Ground Laying & Core Architecture Foundation

@@ -69,6 +69,27 @@ CREATE TABLE IF NOT EXISTS public.role_permissions (
     PRIMARY KEY (role_id, permission_code)
 );
 
+-- Active User Sessions (Token Tracking)
+CREATE TABLE IF NOT EXISTS public.sessions (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+    token TEXT UNIQUE NOT NULL,
+    expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    last_active_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- Password Reset One-Time Passwords (OTPs)
+CREATE TABLE IF NOT EXISTS public.password_reset_otps (
+    id TEXT PRIMARY KEY,
+    email TEXT NOT NULL,
+    otp_hash TEXT NOT NULL,
+    expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    used BOOLEAN DEFAULT false NOT NULL,
+    attempts INTEGER DEFAULT 0 NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
 -- Customer Profiles (Merchants)
 CREATE TABLE IF NOT EXISTS public.customer_profiles (
     id TEXT PRIMARY KEY,
@@ -258,6 +279,7 @@ CREATE TABLE IF NOT EXISTS public.audit_logs (
 
 -- Indices for rapid querying
 CREATE INDEX IF NOT EXISTS idx_users_email ON public.users(email);
+CREATE INDEX IF NOT EXISTS idx_sessions_token ON public.sessions(token);
 CREATE INDEX IF NOT EXISTS idx_products_sku ON public.products(sku);
 CREATE INDEX IF NOT EXISTS idx_units_tracking ON public.inventory_units(tracking_code);
 CREATE INDEX IF NOT EXISTS idx_orders_number ON public.fulfillment_orders(order_number);

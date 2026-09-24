@@ -5,6 +5,7 @@
 
 import { withTransaction, DatabaseSchema } from './db.js';
 import { generateId } from './security.js';
+import { insertAuditLog } from './domainDb.js';
 
 export interface AuditLogInput {
   actorId?: string | null;
@@ -41,10 +42,10 @@ export async function logAudit(input: AuditLogInput, existingDb?: DatabaseSchema
 
   if (existingDb) {
     existingDb.audit_logs.push(record);
+    // Non-blocking write to Supabase
+    insertAuditLog(record).catch(err => console.warn('[AUDIT] Async insert warning:', err));
     return;
   }
 
-  await withTransaction((db) => {
-    db.audit_logs.push(record);
-  });
+  await insertAuditLog(record);
 }

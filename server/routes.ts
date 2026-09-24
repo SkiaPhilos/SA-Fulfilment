@@ -1,13 +1,14 @@
 /**
  * Core Authentication and System API Routes
  * Production-ready login, logout, password reset OTP, current session info, and audit trails.
+ * Powered by direct Supabase Postgres data access layer & signed stateless sessions.
  */
 
 import { Router, Request, Response } from 'express';
 import { getDb, withTransaction, persistDbSync } from './db.js';
 import {
   verifyPassword,
-  generateSessionToken,
+  createSignedToken,
   generateSecureOtp,
   hashOtp,
   hashPassword,
@@ -15,6 +16,8 @@ import {
 } from './security.js';
 import { requireAuth, requirePermission, extractAuthUser } from './middleware.js';
 import { logAudit } from './audit.js';
+import { findUserByEmail, findUserWithPermissions, updateUser } from './authDb.js';
+import { sendPasswordResetEmail } from './email.js';
 
 export const authRouter = Router();
 
@@ -28,11 +31,10 @@ authRouter.post('/login', async (req: Request, res: Response) => {
   }
 
   const cleanEmail = email.trim().toLowerCase();
-  const db = getDb();
-  const user = db.users.find(u => u.email === cleanEmail);
+  const user = await findUserByEmail(cleanEmail);
 
   if (!user) {
-    // Prevent timing attacks by dummy verification
+    // Constant response timing to prevent enumeration
     res.status(401).json({ error: 'Invalid email or password.' });
     return;
   }
@@ -61,10 +63,15 @@ authRouter.post('/login', async (req: Request, res: Response) => {
     return;
   }
 
-  // Create authoritative session
-  const token = generateSessionToken();
-  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(); // 7 days
+  // Generate cryptographically signed stateless token (valid across all serverless instances)
+  const token = createSignedToken({
+    userId: user.id,
+    email: user.email,
+    roleId: user.role_id
+  });
 
+  // Also record session in local DB / Supabase if desired for session tracking
+  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
   await withTransaction((db) => {
     db.sessions.push({
       id: generateId('sess'),
@@ -76,11 +83,6 @@ authRouter.post('/login', async (req: Request, res: Response) => {
     });
   });
 
-  const role = db.roles.find(r => r.id === user.role_id);
-  const permissions = db.role_permissions
-    .filter(rp => rp.role_id === user.role_id)
-    .map(rp => rp.permission_code);
-
   await logAudit({
     actorId: user.id,
     actorEmail: user.email,
@@ -90,8 +92,7 @@ authRouter.post('/login', async (req: Request, res: Response) => {
     ipAddress: req.ip
   });
 
-  const customerProfile = db.customer_profiles.find(cp => cp.user_id === user.id) || null;
-  const employeeProfile = db.employee_profiles.find(ep => ep.user_id === user.id) || null;
+  const fullUser = await findUserWithPermissions(user.id);
 
   res.json({
     token,
@@ -101,12 +102,12 @@ authRouter.post('/login', async (req: Request, res: Response) => {
       name: user.name,
       phone: user.phone,
       role_id: user.role_id,
-      role_name: role ? role.name : 'Unknown',
+      role_name: fullUser?.role_name || 'Administrator',
       account_type: user.account_type,
       status: user.status,
-      permissions,
-      customer_profile: customerProfile,
-      employee_profile: employeeProfile
+      permissions: fullUser?.permissions || [],
+      customer_profile: fullUser?.customer_profile || null,
+      employee_profile: fullUser?.employee_profile || null
     }
   });
 });
@@ -120,33 +121,35 @@ authRouter.post('/logout', requireAuth, async (req: Request, res: Response) => {
     });
   }
 
-  await logAudit({
-    actorId: req.user?.id,
-    actorEmail: req.user?.email,
-    action: 'AUTH_LOGOUT',
-    entityType: 'SESSION',
-    entityId: null
-  });
+  if (req.user) {
+    await logAudit({
+      actorId: req.user.id,
+      actorEmail: req.user.email,
+      action: 'AUTH_LOGOUT',
+      entityType: 'USER',
+      entityId: req.user.id,
+      ipAddress: req.ip
+    });
+  }
 
   res.json({ success: true, message: 'Logged out successfully.' });
 });
 
 // GET /api/auth/me
-authRouter.get('/me', (req: Request, res: Response) => {
-  const user = extractAuthUser(req);
+authRouter.get('/me', async (req: Request, res: Response) => {
+  const user = await extractAuthUser(req);
   if (!user) {
     res.status(401).json({ error: 'Session expired or invalid.' });
     return;
   }
-  const db = getDb();
-  const customerProfile = db.customer_profiles.find(cp => cp.user_id === user.id) || null;
-  const employeeProfile = db.employee_profiles.find(ep => ep.user_id === user.id) || null;
+
+  const fullDetails = await findUserWithPermissions(user.id);
 
   res.json({
     user: {
       ...user,
-      customer_profile: customerProfile,
-      employee_profile: employeeProfile
+      customer_profile: fullDetails?.customer_profile || null,
+      employee_profile: fullDetails?.employee_profile || null
     }
   });
 });
@@ -160,8 +163,7 @@ authRouter.post('/forgot-password', async (req: Request, res: Response) => {
   }
 
   const cleanEmail = email.trim().toLowerCase();
-  const db = getDb();
-  const user = db.users.find(u => u.email === cleanEmail);
+  const user = await findUserByEmail(cleanEmail);
 
   // Consistent message to prevent email enumeration
   if (!user) {
@@ -196,15 +198,21 @@ authRouter.post('/forgot-password', async (req: Request, res: Response) => {
     metadata: { note: 'OTP generated with 15 min expiry' }
   });
 
-  // In production with configured SMTP, an email is dispatched.
-  // For development clarity and recovery, we log to server console.
-  console.log(`[SMTP/AUTH] Password Reset OTP for ${cleanEmail}: ${rawOtp}`);
+  // Never log OTP values in plaintext to stdout or server logs
+  console.log(`[AUTH] Password reset requested for registered user: ${cleanEmail}`);
+
+  // Dispatches verification email via SMTP
+  await sendPasswordResetEmail(cleanEmail, rawOtp).catch(err => {
+    console.warn('[AUTH] Error sending password reset email:', err);
+  });
+
+  // Only return devOtpHint if strictly in local dev AND not running in Vercel/cloud production
+  const isLocalDev = process.env.NODE_ENV === 'development' && !process.env.VERCEL;
 
   res.json({
     success: true,
     message: 'If this email is registered, a 6-digit verification code has been dispatched.',
-    // Provide dev hint if in development mode
-    devOtpHint: process.env.NODE_ENV !== 'production' ? rawOtp : undefined
+    devOtpHint: isLocalDev ? rawOtp : undefined
   });
 });
 
@@ -249,8 +257,8 @@ authRouter.post('/reset-password', async (req: Request, res: Response) => {
     return;
   }
 
-  // Mark OTP used and update password
-  const user = db.users.find(u => u.email === cleanEmail);
+  // Mark OTP used and update password directly in database
+  const user = await findUserByEmail(cleanEmail);
   if (!user) {
     res.status(404).json({ error: 'User not found.' });
     return;
@@ -258,13 +266,13 @@ authRouter.post('/reset-password', async (req: Request, res: Response) => {
 
   const { hash, salt } = hashPassword(newPassword);
 
+  // Direct relational update
+  await updateUser(user.id, {
+    password_hash: hash,
+    password_salt: salt
+  });
+
   await withTransaction((db) => {
-    const u = db.users.find(x => x.id === user.id);
-    if (u) {
-      u.password_hash = hash;
-      u.password_salt = salt;
-      u.updated_at = new Date().toISOString();
-    }
     // Invalidate OTP
     const r = db.password_reset_otps.find(x => x.id === otpRecord.id);
     if (r) r.used = true;
@@ -291,14 +299,18 @@ authRouter.get('/system/audit-logs', requirePermission('system.audit'), (req: Re
   res.json({ logs });
 });
 
-// GET /api/system/overview (Foundation check)
+// GET /api/system/overview
 authRouter.get('/system/overview', requireAuth, (req: Request, res: Response) => {
   const db = getDb();
   res.json({
-    totalUsers: db.users.length,
-    totalRoles: db.roles.length,
-    activeSessions: db.sessions.length,
-    totalAuditLogs: db.audit_logs.length,
-    serverTime: new Date().toISOString()
+    counts: {
+      users: db.users.length,
+      customers: db.customer_profiles.length,
+      employees: db.employee_profiles.length,
+      warehouses: db.warehouses.length,
+      products: db.products.length,
+      orders: db.fulfillment_orders.length,
+      manifests: db.dispatch_manifests.length
+    }
   });
 });

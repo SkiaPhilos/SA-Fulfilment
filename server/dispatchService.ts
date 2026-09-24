@@ -9,7 +9,7 @@
 
 import {
   withTransaction,
-  getDb,
+  getFreshDb,
   FulfillmentOrderRow,
   InventoryUnitRow,
   InventoryTransactionRow,
@@ -23,6 +23,7 @@ import { generateId } from './security.js';
 import { logAudit } from './audit.js';
 import { debitWallet, creditWallet, roundToTwoDecimals } from './walletService.js';
 import { ActorContext } from './fulfillmentService.js';
+import { upsertManifestRecord } from './domainDb.js';
 
 export class DispatchError extends Error {
   constructor(public code: string, message: string) {
@@ -123,6 +124,7 @@ export const dispatchService = {
       };
 
       db.dispatch_manifests.push(manifest);
+      upsertManifestRecord(manifest).catch(e => console.warn('[MANIFEST] Upsert error:', e));
 
       logAudit({
         actorId: actor.id,
@@ -297,6 +299,8 @@ export const dispatchService = {
         }
       });
 
+      upsertManifestRecord(manifest).catch(e => console.warn('[MANIFEST] Upsert error:', e));
+
       return {
         manifest,
         processedOrders
@@ -308,7 +312,7 @@ export const dispatchService = {
    * List dispatch manifests with filtering
    */
   async listManifests(actor: ActorContext) {
-    const db = getDb();
+    const db = await getFreshDb();
     let manifests = [...db.dispatch_manifests];
 
     // If customer, only see manifests containing their orders
@@ -350,7 +354,7 @@ export const dispatchService = {
    * Get single manifest details for printable handover voucher
    */
   async getManifestDetails(manifestId: string) {
-    const db = getDb();
+    const db = await getFreshDb();
     const manifest = db.dispatch_manifests.find(m => m.id === manifestId);
     if (!manifest) {
       throw new DispatchError('NOT_FOUND', `Manifest '${manifestId}' not found.`);
@@ -439,7 +443,7 @@ export const dispatchService = {
    * Get Tracking Timeline for an order
    */
   async getOrderTracking(orderIdentifier: string) {
-    const db = getDb();
+    const db = await getFreshDb();
     const order = db.fulfillment_orders.find(
       o => o.id === orderIdentifier || o.order_number === orderIdentifier
     );
@@ -681,7 +685,7 @@ export const dispatchService = {
    * List return orders
    */
   async listReturns(actor: ActorContext) {
-    const db = getDb();
+    const db = await getFreshDb();
     let returns = [...db.return_orders];
 
     if (actor.accountType === 'customer' && actor.customerProfileId) {
@@ -709,7 +713,7 @@ export const dispatchService = {
    * 8.5: Billing Rate Cards Management
    */
   async listRateCards(actor: ActorContext) {
-    const db = getDb();
+    const db = await getFreshDb();
     if (actor.accountType === 'customer' && actor.customerProfileId) {
       // Customer sees applicable rate card
       return db.billing_rate_cards.filter(

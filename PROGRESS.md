@@ -261,6 +261,74 @@ This document honestly and chronologically records development progress, archite
 - **Next Step:**
   - Proceed to **Phase 7: Warehouse Fulfillment, Picking & Scan-to-Pack**.
 
+---
+
+### [Entry 011] — Round 1 Fix Audit — Blunders Found
+- **Date & Time:** 2026-09-24
+- **Audit Assessment:**
+  A critical audit of the previous round revealed that the fixes applied were superficial, incomplete, or masked underlying architecture flaws rather than resolving root causes. Below is the honest, unvarnished log of the 6 major blunders identified:
+
+#### Blunder 1: Database Architecture Is Not Actually Relational (Dual Source of Truth / In-Memory State)
+- **What Was Originally Broken:**
+  The server treated the entire application state as an in-memory JSON blob (`dbCache` singleton loaded from disk or Supabase table `ship_asaan_snapshots`). Multi-instance serverless deployments could not share live state or guarantee relational constraints.
+- **What Was Actually Done in Round 1:**
+  Added write hooks (`domainDb.ts`, `authDb.ts`) that mirrored mutations out to separate relational Supabase tables (`users`, `roles`, `wallet_accounts`, `products`, `fulfillment_orders`, etc.). However, the primary read and hydration paths in `server/db.ts` and `server/supabase.ts` still checked and loaded the `ship_asaan_snapshots` JSON blob first into `dbCache`. All services continued reading and filtering against the in-memory array singleton.
+- **Why It Was a Fake / Partial Fix:**
+  It did not fix the architecture at all; it created a split-brain system with two divergent, inconsistent copies of the data. Relational tables were written to as a side-effect, while reads and validations still operated on stale in-memory arrays.
+- **What "Actually Fixed" Requires:**
+  Eliminate `ship_asaan_snapshots` and the in-memory `dbCache` singleton as the authoritative source of truth. Make every service (`authDb.ts`, `walletService.ts`, `warehouseService.ts`, `inventoryService.ts`, `orderService.ts`, `dispatchService.ts`, `audit.ts`) execute direct, per-row relational queries and transactions against Supabase PostgreSQL tables.
+
+#### Blunder 2: In-Memory Memoization Across Serverless Instances (Root Cause of Auth Failures)
+- **What Was Originally Broken:**
+  In serverless runtime environments (such as Vercel or multi-instance containers), sessions created on instance A (e.g., login or signup) are stored in instance A's memory. When the next API request from the client hits instance B, instance B's in-memory array has no record of that session, immediately returning 401 "Session expired or invalid".
+- **What Was Actually Done in Round 1:**
+  `api/index.ts` cached `initDatabase()` into a module-level `initPromise` and `appInstance`. While this avoided re-running initialization on subsequent calls within the same warm container, each warm container kept its own isolated, stale snapshot of state indefinitely.
+- **Why It Was a Fake / Partial Fix:**
+  It completely failed to address multi-instance synchronization. Memoizing the in-memory DB per warm instance guaranteed that concurrent or subsequent requests routed across different serverless instances saw conflicting and stale states.
+- **What "Actually Fixed" Requires:**
+  Remove all module-level in-memory state caching of mutable data across requests. Sessions, users, and tokens must be validated per-request via direct queries to the `sessions` and `users` tables in PostgreSQL. State must never be assumed to exist in Node.js process memory.
+
+#### Blunder 3: Silent Data Truncation in Relational Mirroring
+- **What Was Originally Broken:**
+  Relational replication was missing historical data.
+- **What Was Actually Done in Round 1:**
+  To work around payload size limits and naive loops in `supabase.ts`, arbitrary caps were introduced: `inventory_units.slice(-500)` and filtering only recent audit logs during synchronization.
+- **Why It Was a Fake / Partial Fix:**
+  Arbitrarily dropping records older than 500 units or pruning audit trails silently corrupts historical inventory ledgers and audit records. A warehouse management system cannot drop units or audit history.
+- **What "Actually Fixed" Requires:**
+  Remove all `.slice()` truncations and arbitrary filters. Implement full relational storage without truncation. Every single inventory unit, transaction ledger entry, and audit log must be persisted and queried directly using paginated, indexed SQL queries.
+
+#### Blunder 4: Insecure CORS Origin Reflection with Credentials
+- **What Was Originally Broken:**
+  The server had inconsistent CORS headers when deployed across separate domains or Vercel preview URLs.
+- **What Was Actually Done in Round 1:**
+  Replaced CORS handling by dynamically reading the incoming request's `Origin` header and echoing it back verbatim in `Access-Control-Allow-Origin`, paired with `Access-Control-Allow-Credentials: true`.
+- **Why It Was a Fake / Partial Fix:**
+  Echoing back any arbitrary `Origin` header while allowing credentials is a critical security vulnerability: it effectively permits any malicious third-party site to initiate authenticated cross-origin requests with the user's cookies and Bearer tokens.
+- **What "Actually Fixed" Requires:**
+  Enforce a strict origin allowlist driven by an `ALLOWED_ORIGINS` environment variable (e.g., comma-separated list of authorized domains), with strict fallback defaults for known production and local development origins, rejecting unapproved origins.
+
+#### Blunder 5: In-Memory Rate Limiting Ineffective Under Serverless Deployments
+- **What Was Originally Broken:**
+  Rate limiting was needed to prevent brute-force attacks on OTP endpoints and password resets.
+- **What Was Actually Done in Round 1:**
+  Built a local Node.js `Map` (`rateLimitStore`) inside `server/middleware.ts`.
+- **Why It Was a Fake / Partial Fix:**
+  In a serverless architecture like Vercel, memory is not shared between instances, and instances can spin up or down at any moment. An attacker can distribute requests or hit different instances, completely bypassing the local in-memory counter.
+- **What "Actually Fixed" Requires:**
+  Implement distributed rate limiting backed by a persistent Supabase table (or atomic counter / RPC) that records IP / endpoint request counts with sliding window timestamps, enforcing rate limits globally across all serverless instances.
+
+#### Blunder 6: Fake Document Uploads (Boolean Flags with No Actual Storage)
+- **What Was Originally Broken:**
+  Employee and customer onboarding required uploading official documents (CNIC front/back, CV, merchant registration certificates), but document handling was never implemented.
+- **What Was Actually Done in Round 1:**
+  Set `cv_uploaded: true` and `cnic_uploaded: true` as plain booleans in the JSON schema without any file upload endpoint, file storage, or file retrieval mechanism.
+- **Why It Was a Fake / Partial Fix:**
+  The UI showed green checkmarks indicating documents were "Uploaded", but zero files were ever accepted, stored, or verified. This is a complete placeholder masquerading as a feature.
+- **What "Actually Fixed" Requires:**
+  Implement real, private document storage using Supabase Storage buckets (e.g. `documents` bucket configured as private, non-public). Add multipart/form-data upload endpoints, store object paths with cryptographic random keys in the database, and generate time-limited signed URLs for authorized staff to view or download documents.
+
+
 
 
 

@@ -32,6 +32,58 @@ export function verifyPassword(password: string, storedHash: string, storedSalt:
   }
 }
 
+const JWT_SECRET = process.env.JWT_SECRET || 'ship_asaan_production_jwt_master_secret_2026_secure';
+
+export interface TokenPayload {
+  userId: string;
+  email: string;
+  roleId: string;
+  createdAt: number;
+  expiresAt: number;
+}
+
+/**
+ * Generate a tamper-proof cryptographically signed stateless token (HMAC-SHA256)
+ */
+export function createSignedToken(
+  payload: Omit<TokenPayload, 'createdAt' | 'expiresAt'>,
+  expiresInMs = 7 * 24 * 60 * 60 * 1000 // 7 days
+): string {
+  const now = Date.now();
+  const fullPayload: TokenPayload = {
+    ...payload,
+    createdAt: now,
+    expiresAt: now + expiresInMs
+  };
+  const body = Buffer.from(JSON.stringify(fullPayload)).toString('base64url');
+  const signature = crypto.createHmac('sha256', JWT_SECRET).update(body).digest('base64url');
+  return `${body}.${signature}`;
+}
+
+/**
+ * Verify a tamper-proof cryptographically signed token
+ */
+export function verifySignedToken(token: string): TokenPayload | null {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 2) return null;
+    const [body, signature] = parts;
+    const expectedSig = crypto.createHmac('sha256', JWT_SECRET).update(body).digest('base64url');
+    const sigBuf = Buffer.from(signature);
+    const expBuf = Buffer.from(expectedSig);
+    if (sigBuf.length !== expBuf.length || !crypto.timingSafeEqual(sigBuf, expBuf)) {
+      return null;
+    }
+    const payload: TokenPayload = JSON.parse(Buffer.from(body, 'base64url').toString('utf-8'));
+    if (Date.now() > payload.expiresAt) {
+      return null;
+    }
+    return payload;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Generate a cryptographically secure random session token
  */

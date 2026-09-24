@@ -6,6 +6,7 @@
 import { withTransaction, getDb, WalletAccountRow, WalletTransactionRow, DatabaseSchema } from './db.js';
 import { generateId } from './security.js';
 import { logAudit } from './audit.js';
+import { upsertWalletAccount, insertWalletTxn } from './domainDb.js';
 
 export interface WalletTransactionInput {
   customerProfileId: string;
@@ -76,6 +77,7 @@ export async function getOrCreateWallet(
         updated_at: new Date().toISOString()
       };
       db.wallet_accounts.push(account);
+      await upsertWalletAccount(account);
     }
     return account;
   };
@@ -150,6 +152,8 @@ export async function creditWallet(
     };
 
     db.wallet_transactions.push(transaction);
+    await upsertWalletAccount(account);
+    await insertWalletTxn(transaction);
 
     await logAudit({
       actorId: input.actor.id,
@@ -245,6 +249,8 @@ export async function debitWallet(
     };
 
     db.wallet_transactions.push(transaction);
+    await upsertWalletAccount(account);
+    await insertWalletTxn(transaction);
 
     await logAudit({
       actorId: input.actor.id,
@@ -328,6 +334,8 @@ export async function adjustWallet(
     };
 
     db.wallet_transactions.push(transaction);
+    await upsertWalletAccount(account);
+    await insertWalletTxn(transaction);
 
     await logAudit({
       actorId: input.actor.id,
@@ -421,6 +429,8 @@ export async function reverseTransaction(
     };
 
     db.wallet_transactions.push(reversalTransaction);
+    await upsertWalletAccount(account);
+    await insertWalletTxn(reversalTransaction);
 
     await logAudit({
       actorId: actor.id,

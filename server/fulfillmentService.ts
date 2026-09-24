@@ -1,5 +1,5 @@
 import {
-  getDb,
+  getFreshDb,
   withTransaction,
   DatabaseSchema,
   FulfillmentOrderRow,
@@ -292,7 +292,7 @@ export class FulfillmentService {
    * Get picking batch details with location-optimized pick sheet
    */
   public async getPickingBatchDetails(actor: ActorContext, batchId: string) {
-    const db = getDb();
+    const db = await getFreshDb();
     const batch = db.picking_batches.find(b => b.id === batchId);
     if (!batch) {
       throw new FulfillmentError('NOT_FOUND', 'Picking batch not found.');
@@ -380,7 +380,7 @@ export class FulfillmentService {
    * List picking batches
    */
   public async listPickingBatches(actor: ActorContext) {
-    const db = getDb();
+    const db = await getFreshDb();
     const batches = [...db.picking_batches].sort((a, b) => b.created_at.localeCompare(a.created_at));
     return batches;
   }
@@ -777,7 +777,7 @@ export class FulfillmentService {
    * 7.5: Shipping Labels Data Generation for Thermal 4x6 / 4x2 Printing
    */
   public async getShippingLabelsData(actor: ActorContext, orderIds: string[]) {
-    const db = getDb();
+    const db = await getFreshDb();
 
     let orders = db.fulfillment_orders.filter(o => orderIds.includes(o.id));
     if (actor.accountType === 'customer') {

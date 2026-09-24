@@ -4,7 +4,7 @@
  */
 
 import { Router, Request, Response } from 'express';
-import { getDb, withTransaction } from './db.js';
+import { getFreshDb, getDb, withTransaction } from './db.js';
 import { requireAuth, requirePermission } from './middleware.js';
 import {
   creditWallet,
@@ -44,7 +44,7 @@ walletRouter.get('/instructions', requireAuth, (_req: Request, res: Response) =>
  */
 walletRouter.get('/my-wallet', requireAuth, async (req: Request, res: Response) => {
   const user = req.user!;
-  const db = getDb();
+  const db = await getFreshDb();
 
   let targetCustomerProfileId: string | null = null;
 
@@ -111,7 +111,7 @@ walletRouter.get('/my-wallet', requireAuth, async (req: Request, res: Response) 
  * Requires 'wallet.view' permission
  */
 walletRouter.get('/accounts', requireAuth, requirePermission('wallet.view'), async (req: Request, res: Response) => {
-  const db = getDb();
+  const db = await getFreshDb();
 
   // Ensure all customer profiles have an initialized wallet account
   for (const customer of db.customer_profiles) {
@@ -176,9 +176,9 @@ walletRouter.get('/accounts', requireAuth, requirePermission('wallet.view'), asy
  * List all transactions with search, pagination, and date filtering
  * Requires 'wallet.view' (or scoped to customer)
  */
-walletRouter.get('/transactions', requireAuth, (req: Request, res: Response) => {
+walletRouter.get('/transactions', requireAuth, async (req: Request, res: Response) => {
   const user = req.user!;
-  const db = getDb();
+  const db = await getFreshDb();
 
   let targetCustomerProfileId: string | undefined = undefined;
 
@@ -442,9 +442,9 @@ walletRouter.post('/reverse/:transactionId', requireAuth, requirePermission('wal
  * GET /api/wallet/export
  * Downloads standard RFC 4180 CSV export of ledger entries
  */
-walletRouter.get('/export', requireAuth, (req: Request, res: Response) => {
+walletRouter.get('/export', requireAuth, async (req: Request, res: Response) => {
   const user = req.user!;
-  const db = getDb();
+  const db = await getFreshDb();
 
   let targetCustomerProfileId: string | undefined = undefined;
 

@@ -198,39 +198,17 @@ export async function bootstrapSystem(): Promise<void> {
       existingAdmin.password_salt = salt;
       existingAdmin.status = 'active';
       existingAdmin.role_id = SYSTEM_ROLE_ADMIN;
+      existingAdmin.updated_at = now;
     }
 
-    // Also support operator and admin emails from environment or applet metadata
-    const userEmails = [
-      'islamabadpindistation@gmail.com',
-      'isb.rwp.1.pstofficer@gmail.com',
-      'admin@shipasaan.pk',
-      'admin@shipasaan.com'
-    ];
-
-    for (const email of userEmails) {
-      let u = db.users.find(x => x.email === email);
-      if (!u) {
-        const opId = generateId('usr_admin');
-        u = {
-          id: opId,
-          email,
-          password_hash: hash,
-          password_salt: salt,
-          name: email.startsWith('admin') ? 'System Administrator' : 'Operations Officer',
-          phone: '+92 300 0000001',
-          role_id: SYSTEM_ROLE_ADMIN,
-          account_type: 'staff',
-          status: 'active',
-          created_at: now,
-          updated_at: now
-        };
-        db.users.push(u);
-      } else {
-        u.password_hash = hash;
-        u.password_salt = salt;
-        u.status = 'active';
-        u.role_id = SYSTEM_ROLE_ADMIN;
+    // Direct synchronous upsert into Supabase relational users table
+    const { getSupabaseClient } = await import('./supabase.js');
+    const supabaseClient = getSupabaseClient();
+    if (supabaseClient) {
+      try {
+        await supabaseClient.from('users').upsert(existingAdmin, { onConflict: 'id' });
+      } catch (err) {
+        console.warn('[BOOTSTRAP] Warning updating user in Supabase:', err);
       }
     }
 
@@ -258,171 +236,28 @@ export async function bootstrapSystem(): Promise<void> {
       });
     }
 
-    // 6. Seed representative merchant accounts if empty for operational testing
-    if (db.customer_profiles.length === 0) {
-      const { hash: pHash1, salt: pSalt1 } = hashPassword('MerchantPass123!');
-      const custUser1Id = generateId('usr_cust');
-      db.users.push({
-        id: custUser1Id,
-        email: 'merchant@gulahmedretail.pk',
-        password_hash: pHash1,
-        password_salt: pSalt1,
-        name: 'Tariq Gul',
-        phone: '0321-9876543',
-        role_id: SYSTEM_ROLE_CUSTOMER,
-        account_type: 'customer',
-        status: 'pending_approval',
-        created_at: now,
-        updated_at: now
-      });
-
-      db.customer_profiles.push({
-        id: generateId('cust'),
-        user_id: custUser1Id,
-        business_name: 'Gul Ahmed Retail Logistics Pvt Ltd',
-        brand_name: 'Gul Ahmed Studio',
-        cnic_or_ntn: 'NTN-8923401-2',
-        phone: '0321-9876543',
-        address: 'Plot 45, Landhi Industrial Area',
-        city: 'Karachi',
-        approval_status: 'pending',
-        bank_name: 'Habib Bank Limited',
-        bank_account_title: 'Gul Ahmed Retail Logistics',
-        bank_iban: 'PK36HABB0000123456789012',
-        completeness_score: 100,
-        created_at: now,
-        updated_at: now
-      });
-
-      const { hash: pHash2, salt: pSalt2 } = hashPassword('MerchantPass123!');
-      const custUser2Id = generateId('usr_cust');
-      db.users.push({
-        id: custUser2Id,
-        email: 'logistics@alkaramfabrics.com',
-        password_hash: pHash2,
-        password_salt: pSalt2,
-        name: 'Faisal Bilwani',
-        phone: '0300-8765432',
-        role_id: SYSTEM_ROLE_CUSTOMER,
-        account_type: 'customer',
-        status: 'active',
-        created_at: now,
-        updated_at: now
-      });
-
-      db.customer_profiles.push({
-        id: generateId('cust'),
-        user_id: custUser2Id,
-        business_name: 'Al-Karam Studio Logistics Pvt Ltd',
-        brand_name: 'Al-Karam Studio',
-        cnic_or_ntn: 'NTN-3498120-7',
-        phone: '0300-8765432',
-        address: 'Sector 23, Korangi Industrial Zone',
-        city: 'Karachi',
-        approval_status: 'approved',
-        reviewed_by: adminUser?.id,
-        reviewed_at: now,
-        bank_name: 'Meezan Bank Limited',
-        bank_account_title: 'Al-Karam Studio Logistics',
-        bank_iban: 'PK12MEZN0000987654321098',
-        completeness_score: 100,
-        created_at: now,
-        updated_at: now
-      });
-    }
-
-    // 7. Seed representative warehouse operations employee if empty
-    if (db.employee_profiles.length <= 1) {
-      const { hash: eHash, salt: eSalt } = hashPassword('StaffPass123!');
-      const empUserId = generateId('usr_emp');
-      db.users.push({
-        id: empUserId,
-        email: 'rashid.minhas@shipasaan.com',
-        password_hash: eHash,
-        password_salt: eSalt,
-        name: 'Rashid Minhas',
-        phone: '0333-1234567',
-        role_id: SYSTEM_ROLE_EMPLOYEE,
-        account_type: 'staff',
-        status: 'active',
-        created_at: now,
-        updated_at: now
-      });
-
-      db.employee_profiles.push({
-        id: generateId('emp'),
-        user_id: empUserId,
-        designation: 'Warehouse Inbound Supervisor',
-        department: 'Warehousing & Operations',
-        joining_date: '2025-02-15',
-        cnic: '35202-7654321-1',
-        phone: '0333-1234567',
-        address: 'Flat 4B, Model Town Extension',
-        city: 'Lahore',
-        cv_uploaded: true,
-        cnic_uploaded: true,
-        bank_name: 'Bank Alfalah Ltd',
-        bank_account_title: 'Rashid Minhas',
-        bank_iban: 'PK45ALFH0001982347891234',
-        completeness_score: 100,
-        created_at: now,
-        updated_at: now
-      });
-    }
-
-    // 8. Ensure all customers have active wallet accounts & initial ledger state
+    // 6. Ensure standard domain collections are initialized as clean empty stores
+    if (!db.customer_profiles) db.customer_profiles = [];
+    if (!db.employee_profiles) db.employee_profiles = [];
     if (!db.wallet_accounts) db.wallet_accounts = [];
     if (!db.wallet_transactions) db.wallet_transactions = [];
-
-    for (const customer of db.customer_profiles) {
-      let wallet = db.wallet_accounts.find(w => w.customer_profile_id === customer.id);
-      if (!wallet) {
-        wallet = {
-          id: generateId('wal'),
-          customer_profile_id: customer.id,
-          user_id: customer.user_id,
-          balance: 0.00,
-          currency: 'PKR',
-          status: 'active',
-          created_at: customer.created_at,
-          updated_at: customer.updated_at
-        };
-        db.wallet_accounts.push(wallet);
-      }
-
-      // If customer is approved and has zero transactions, provide operational opening balance
-      const hasTxns = db.wallet_transactions.some(t => t.customer_profile_id === customer.id);
-      if (!hasTxns && customer.approval_status === 'approved') {
-        const openingAmount = 150000.00; // PKR 150,000 operational balance
-        wallet.balance = openingAmount;
-        wallet.updated_at = now;
-
-        db.wallet_transactions.push({
-          id: generateId('txn'),
-          wallet_id: wallet.id,
-          customer_profile_id: customer.id,
-          type: 'CREDIT',
-          amount: openingAmount,
-          balance_before: 0.00,
-          balance_after: openingAmount,
-          payment_method: 'bank_transfer',
-          reference_number: 'FT2609018491-MEZN',
-          notes: 'Opening operational security & fulfillment deposit verified via Meezan IBFT',
-          actor_id: adminUser ? adminUser.id : 'usr_system',
-          actor_name: 'System Administrator',
-          created_at: now
-        });
-      }
-    }
-
-    // 8. Phase 4: Storage Templates & Warehouse Infrastructure
-    if (!db.storage_templates) db.storage_templates = [];
     if (!db.warehouses) db.warehouses = [];
     if (!db.warehouse_locations) db.warehouse_locations = [];
 
-    // Seed default storage templates if empty
-    if (db.storage_templates.length === 0) {
-      db.storage_templates.push(
+    // Purge any legacy synthetic test accounts from local memory
+    const syntheticEmails = [
+      'merchant@gulahmedretail.pk',
+      'logistics@alkaramfabrics.com',
+      'rashid.minhas@shipasaan.com'
+    ];
+    db.users = db.users.filter(u => !syntheticEmails.includes(u.email));
+    db.customer_profiles = db.customer_profiles.filter(cp => cp.brand_name !== 'Al-Karam Studio' && cp.brand_name !== 'Gul Ahmed Studio');
+    db.employee_profiles = db.employee_profiles.filter(ep => ep.user_id !== adminUser?.id ? ep.cnic !== '35202-7654321-1' : true);
+    db.wallet_accounts = db.wallet_accounts.filter(w => !db.customer_profiles.some(cp => cp.id === w.customer_profile_id && (cp.brand_name === 'Al-Karam Studio' || cp.brand_name === 'Gul Ahmed Studio')));
+
+    // 7. Ensure standard storage templates exist
+    if (!db.storage_templates || db.storage_templates.length === 0) {
+      db.storage_templates = [
         {
           id: 'tpl_euro_pallet',
           name: 'Standard Euro Pallet Bay',
@@ -467,213 +302,7 @@ export async function bootstrapSystem(): Promise<void> {
           max_units: 60,
           created_at: now
         }
-      );
-    }
-
-    // Seed default warehouses if empty
-    if (db.warehouses.length === 0) {
-      const whIsbId = 'wh_isb_main';
-      const whLhrId = 'wh_lhr_main';
-
-      db.warehouses.push(
-        {
-          id: whIsbId,
-          code: 'ISB-01',
-          name: 'Islamabad Central Fulfillment Hub (I-9)',
-          city: 'Islamabad',
-          address: 'Plot 414, Street 3, Sector I-9/3 Industrial Area',
-          contact_person: 'Muhammad Tariq',
-          contact_phone: '+92 51 4433221',
-          status: 'active',
-          total_area_sqft: 25000,
-          created_at: now,
-          updated_at: now
-        },
-        {
-          id: whLhrId,
-          code: 'LHR-01',
-          name: 'Lahore Regional Fulfillment & Cross-Dock Hub',
-          city: 'Lahore',
-          address: 'Gate 4, Sundar Industrial Estate, Multan Road',
-          contact_person: 'Khurram Shahzad',
-          contact_phone: '+92 42 3591234',
-          status: 'active',
-          total_area_sqft: 42000,
-          created_at: now,
-          updated_at: now
-        }
-      );
-
-      // Seed comprehensive location tree for ISB-01
-      // Level 0: Zone A (Ambient Pick & Pack)
-      const zoneAId = 'loc_isb_za';
-      db.warehouse_locations.push({
-        id: zoneAId,
-        warehouse_id: whIsbId,
-        parent_id: null,
-        name: 'Zone A - Ambient Pick & Pack',
-        code: 'ZA',
-        barcode: 'LOC-ISB-01-ZA',
-        type: 'zone',
-        path: 'ISB-01 / Zone A - Ambient Pick & Pack',
-        level: 0,
-        dimensions: { length_cm: 3000, width_cm: 2000, height_cm: 600 },
-        capacity_volume_cm3: 360000000,
-        max_weight_kg: 50000,
-        max_units: 5000,
-        occupied_units: 0,
-        status: 'available',
-        notes: 'Primary fast-moving fulfillment zone with high-frequency packing desks',
-        created_at: now,
-        updated_at: now
-      });
-
-      // Level 1: Aisle A01 & A02 under Zone A
-      const aisles = ['A01', 'A02'];
-      aisles.forEach((aisleCode) => {
-        const aisleId = `loc_isb_za_${aisleCode.toLowerCase()}`;
-        db.warehouse_locations.push({
-          id: aisleId,
-          warehouse_id: whIsbId,
-          parent_id: zoneAId,
-          name: `Aisle ${aisleCode}`,
-          code: `ZA-${aisleCode}`,
-          barcode: `LOC-ISB-01-ZA-${aisleCode}`,
-          type: 'aisle',
-          path: `ISB-01 / Zone A - Ambient Pick & Pack / Aisle ${aisleCode}`,
-          level: 1,
-          dimensions: { length_cm: 1500, width_cm: 250, height_cm: 500 },
-          capacity_volume_cm3: 18750000,
-          max_weight_kg: 10000,
-          max_units: 1000,
-          occupied_units: 0,
-          status: 'available',
-          created_at: now,
-          updated_at: now
-        });
-
-        // Level 2: Racks R01 and R02 under each Aisle
-        ['R01', 'R02'].forEach((rackCode) => {
-          const rackId = `${aisleId}_${rackCode.toLowerCase()}`;
-          db.warehouse_locations.push({
-            id: rackId,
-            warehouse_id: whIsbId,
-            parent_id: aisleId,
-            name: `Rack ${rackCode}`,
-            code: `ZA-${aisleCode}-${rackCode}`,
-            barcode: `LOC-ISB-01-ZA-${aisleCode}-${rackCode}`,
-            type: 'rack',
-            path: `ISB-01 / Zone A - Ambient Pick & Pack / Aisle ${aisleCode} / Rack ${rackCode}`,
-            level: 2,
-            dimensions: { length_cm: 300, width_cm: 100, height_cm: 350 },
-            capacity_volume_cm3: 10500000,
-            max_weight_kg: 3000,
-            max_units: 300,
-            occupied_units: 0,
-            status: 'available',
-            created_at: now,
-            updated_at: now
-          });
-
-          // Level 3: Shelves S01 and S02 under each Rack
-          ['S01', 'S02'].forEach((shelfCode) => {
-            const shelfId = `${rackId}_${shelfCode.toLowerCase()}`;
-            db.warehouse_locations.push({
-              id: shelfId,
-              warehouse_id: whIsbId,
-              parent_id: rackId,
-              name: `Shelf ${shelfCode}`,
-              code: `ZA-${aisleCode}-${rackCode}-${shelfCode}`,
-              barcode: `LOC-ISB-01-ZA-${aisleCode}-${rackCode}-${shelfCode}`,
-              type: 'shelf',
-              path: `ISB-01 / Zone A - Ambient Pick & Pack / Aisle ${aisleCode} / Rack ${rackCode} / Shelf ${shelfCode}`,
-              level: 3,
-              template_id: 'tpl_mezz_shelf',
-              dimensions: { length_cm: 100, width_cm: 60, height_cm: 50 },
-              capacity_volume_cm3: 300000,
-              max_weight_kg: 250,
-              max_units: 40,
-              occupied_units: 0,
-              status: 'available',
-              created_at: now,
-              updated_at: now
-            });
-
-            // Level 4: Bins B01, B02, B03 under each Shelf
-            ['B01', 'B02', 'B03'].forEach((binCode) => {
-              const binId = `${shelfId}_${binCode.toLowerCase()}`;
-              db.warehouse_locations.push({
-                id: binId,
-                warehouse_id: whIsbId,
-                parent_id: shelfId,
-                name: `Bin ${binCode}`,
-                code: `ZA-${aisleCode}-${rackCode}-${shelfCode}-${binCode}`,
-                barcode: `LOC-ISB-01-ZA-${aisleCode}-${rackCode}-${shelfCode}-${binCode}`,
-                type: 'bin',
-                path: `ISB-01 / Zone A - Ambient Pick & Pack / Aisle ${aisleCode} / Rack ${rackCode} / Shelf ${shelfCode} / Bin ${binCode}`,
-                level: 4,
-                template_id: 'tpl_pick_bin',
-                dimensions: { length_cm: 40, width_cm: 30, height_cm: 25 },
-                capacity_volume_cm3: 30000,
-                max_weight_kg: 25,
-                max_units: 20,
-                occupied_units: 0,
-                status: 'available',
-                created_at: now,
-                updated_at: now
-              });
-            });
-          });
-        });
-      });
-
-      // Level 0: Zone B (Bulk Heavy Pallet Reserve)
-      const zoneBId = 'loc_isb_zb';
-      db.warehouse_locations.push({
-        id: zoneBId,
-        warehouse_id: whIsbId,
-        parent_id: null,
-        name: 'Zone B - Heavy Pallet Reserve',
-        code: 'ZB',
-        barcode: 'LOC-ISB-01-ZB',
-        type: 'zone',
-        path: 'ISB-01 / Zone B - Heavy Pallet Reserve',
-        level: 0,
-        dimensions: { length_cm: 4000, width_cm: 2500, height_cm: 800 },
-        capacity_volume_cm3: 800000000,
-        max_weight_kg: 100000,
-        max_units: 200,
-        occupied_units: 0,
-        status: 'available',
-        notes: 'Forklift-accessible heavy pallet staging and bulk overflow',
-        created_at: now,
-        updated_at: now
-      });
-
-      // Level 1: Pallet Bays P01 to P04 under Zone B
-      ['P01', 'P02', 'P03', 'P04'].forEach((bayCode) => {
-        const bayId = `loc_isb_zb_${bayCode.toLowerCase()}`;
-        db.warehouse_locations.push({
-          id: bayId,
-          warehouse_id: whIsbId,
-          parent_id: zoneBId,
-          name: `Pallet Bay ${bayCode}`,
-          code: `ZB-${bayCode}`,
-          barcode: `LOC-ISB-01-ZB-${bayCode}`,
-          type: 'bay',
-          path: `ISB-01 / Zone B - Heavy Pallet Reserve / Pallet Bay ${bayCode}`,
-          level: 1,
-          template_id: 'tpl_euro_pallet',
-          dimensions: { length_cm: 120, width_cm: 80, height_cm: 160 },
-          capacity_volume_cm3: 1536000,
-          max_weight_kg: 1000,
-          max_units: 1,
-          occupied_units: 0,
-          status: 'available',
-          created_at: now,
-          updated_at: now
-        });
-      });
+      ];
     }
 
     // 8. Ensure default billing rate card exists
@@ -682,11 +311,11 @@ export async function bootstrapSystem(): Promise<void> {
         id: 'rate_standard_pk',
         customer_id: null, // Global default
         name: 'Standard Commercial Fulfillment & Courier Tariff (PKR)',
-        base_courier_fee: 190.00, // Standard domestic base courier delivery fee
-        per_kg_fee: 45.00,        // Additional kg weight charge
-        pick_pack_fee_per_unit: 30.00, // Scanning, pick path & thermal packing charge
-        daily_storage_fee_per_cbm: 15.00, // Warehouse volume rent
-        return_processing_fee: 40.00, // Reverse QC & inspection fee
+        base_courier_fee: 190.00,
+        per_kg_fee: 45.00,
+        pick_pack_fee_per_unit: 30.00,
+        daily_storage_fee_per_cbm: 15.00,
+        return_processing_fee: 40.00,
         is_active: true,
         created_at: now,
         updated_at: now

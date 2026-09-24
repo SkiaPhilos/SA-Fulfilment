@@ -1,9 +1,12 @@
 /**
  * Server Authentication & Authorization Middleware
- * Validates session tokens, enforces permissions server-side, and extracts active user.
+ * Validates cryptographically signed stateless tokens (HMAC-SHA256),
+ * enforces direct Postgres user & RBAC permission checks, and extracts active user.
  */
 
 import { Request, Response, NextFunction } from 'express';
+import { verifySignedToken } from './security.js';
+import { findUserWithPermissions } from './authDb.js';
 import { getDb } from './db.js';
 
 export interface AuthenticatedUser {
@@ -25,7 +28,11 @@ declare global {
   }
 }
 
-export function extractAuthUser(req: Request): AuthenticatedUser | null {
+/**
+ * Authoritatively extract and authenticate the requesting user from the Bearer token.
+ * Works seamlessly across multi-instance and serverless runtimes.
+ */
+export async function extractAuthUser(req: Request): Promise<AuthenticatedUser | null> {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return null;
@@ -34,64 +41,94 @@ export function extractAuthUser(req: Request): AuthenticatedUser | null {
   const token = authHeader.substring(7).trim();
   if (!token) return null;
 
-  const db = getDb();
-  const session = db.sessions.find(s => s.token === token);
-  if (!session) return null;
+  // 1. Primary: Verify cryptographically signed stateless token
+  const tokenPayload = verifySignedToken(token);
+  if (tokenPayload) {
+    const user = await findUserWithPermissions(tokenPayload.userId);
+    if (!user || user.status === 'suspended' || user.status === 'inactive') {
+      return null;
+    }
 
-  if (new Date(session.expires_at).getTime() < Date.now()) {
-    return null;
+    return {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role_id: user.role_id,
+      role_name: user.role_name || 'Staff',
+      account_type: user.account_type,
+      status: user.status,
+      permissions: user.permissions || []
+    };
   }
 
-  const user = db.users.find(u => u.id === session.user_id);
-  if (!user || user.status === 'suspended' || user.status === 'inactive') {
-    return null;
+  // 2. Fallback: Check local sessions table (backward compatibility for legacy sessions)
+  try {
+    const db = getDb();
+    const session = db.sessions.find(s => s.token === token);
+    if (session && new Date(session.expires_at).getTime() >= Date.now()) {
+      const user = await findUserWithPermissions(session.user_id);
+      if (user && user.status !== 'suspended' && user.status !== 'inactive') {
+        return {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          role_id: user.role_id,
+          role_name: user.role_name || 'Staff',
+          account_type: user.account_type,
+          status: user.status,
+          permissions: user.permissions || []
+        };
+      }
+    }
+  } catch {
+    // Ignore legacy check failure
   }
 
-  const role = db.roles.find(r => r.id === user.role_id);
-  const permissions = db.role_permissions
-    .filter(rp => rp.role_id === user.role_id)
-    .map(rp => rp.permission_code);
-
-  return {
-    id: user.id,
-    email: user.email,
-    name: user.name,
-    role_id: user.role_id,
-    role_name: role ? role.name : 'Unknown',
-    account_type: user.account_type,
-    status: user.status,
-    permissions
-  };
+  return null;
 }
 
-export function requireAuth(req: Request, res: Response, next: NextFunction): void {
-  const user = extractAuthUser(req);
-  if (!user) {
-    res.status(401).json({ error: 'Unauthorized: Valid authentication token required.' });
-    return;
-  }
-  req.user = user;
-  next();
-}
-
-export function requirePermission(permissionCode: string) {
-  return (req: Request, res: Response, next: NextFunction): void => {
-    const user = extractAuthUser(req);
+/**
+ * Require valid authentication for the route
+ */
+export async function requireAuth(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const user = await extractAuthUser(req);
     if (!user) {
-      res.status(401).json({ error: 'Unauthorized: Authentication required.' });
+      res.status(401).json({ error: 'Unauthorized: Valid authentication token required.' });
       return;
     }
-
     req.user = user;
+    next();
+  } catch (err) {
+    res.status(401).json({ error: 'Unauthorized: Authentication verification failed.' });
+  }
+}
 
-    // Administrator role bypasses specific permission checks
-    if (user.role_id === 'role_administrator' || user.permissions.includes(permissionCode)) {
-      next();
-      return;
+/**
+ * Require a specific RBAC permission for the route
+ */
+export function requirePermission(permissionCode: string) {
+  return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const user = req.user || (await extractAuthUser(req));
+      if (!user) {
+        res.status(401).json({ error: 'Unauthorized: Authentication required.' });
+        return;
+      }
+
+      req.user = user;
+
+      // Administrator role bypasses specific granular permission checks
+      if (user.role_id === 'role_administrator' || user.permissions.includes(permissionCode)) {
+        next();
+        return;
+      }
+
+      res.status(403).json({
+        error: `Forbidden: Lacks required permission '${permissionCode}'.`
+      });
+    } catch (err) {
+      res.status(403).json({ error: 'Forbidden: Authorization check failed.' });
     }
-
-    res.status(403).json({
-      error: `Forbidden: Lacks required permission '${permissionCode}'.`
-    });
   };
 }

@@ -16,10 +16,34 @@ import { inventoryRouter } from './inventoryRoutes.js';
 import { orderRouter } from './orderRoutes.js';
 import { fulfillmentRouter } from './fulfillmentRoutes.js';
 import { dispatchRouter } from './dispatchRoutes.js';
-
 import { initDatabase } from './db.js';
 
 dotenv.config();
+
+// In-memory sliding window rate limiter
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+
+function createRateLimiter(maxRequests: number, windowMs: number, message: string) {
+  return (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    const ip = req.ip || req.socket.remoteAddress || 'unknown';
+    const key = `${req.baseUrl || ''}${req.path}:${ip}`;
+    const now = Date.now();
+    const entry = rateLimitMap.get(key);
+
+    if (!entry || now > entry.resetAt) {
+      rateLimitMap.set(key, { count: 1, resetAt: now + windowMs });
+      return next();
+    }
+
+    if (entry.count >= maxRequests) {
+      res.status(429).json({ error: message });
+      return;
+    }
+
+    entry.count += 1;
+    next();
+  };
+}
 
 export function createExpressApp() {
   const app = express();
@@ -27,11 +51,17 @@ export function createExpressApp() {
   app.use(express.json({ limit: '10mb' }));
   app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-  // CORS headers
+  // Strict CORS headers
   app.use((req, res, next) => {
-    res.setHeader('Access-Control-Allow-Origin', '*');
+    const origin = req.headers.origin;
+    if (origin) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+      res.setHeader('Access-Control-Allow-Credentials', 'true');
+    } else {
+      res.setHeader('Access-Control-Allow-Origin', '*');
+    }
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
     if (req.method === 'OPTIONS') {
       return res.status(200).end();
     }
@@ -40,6 +70,13 @@ export function createExpressApp() {
 
   // Trust proxy for secure headers
   app.set('trust proxy', 1);
+
+  // Rate-limited Auth endpoints
+  const loginLimiter = createRateLimiter(15, 5 * 60 * 1000, 'Too many login attempts. Please wait 5 minutes before trying again.');
+  const forgotPasswordLimiter = createRateLimiter(5, 15 * 60 * 1000, 'Too many password reset requests. Please wait 15 minutes.');
+
+  app.use('/api/auth/login', loginLimiter);
+  app.use('/api/auth/forgot-password', forgotPasswordLimiter);
 
   // Mount API routes
   app.use('/api/auth', authRouter);
@@ -101,12 +138,12 @@ export async function startServer() {
     }
 
     const server = app.listen(port, '0.0.0.0', () => {
-      console.log(`[SHIP ASAAN] Server listening on port ${port} (mode: ${isProd ? 'production' : 'development'})`);
+      console.log(`[SERVER] Ship Asaan server is actively listening on http://0.0.0.0:${port}`);
     });
 
     return server;
-  } catch (error) {
-    console.error('[SHIP ASAAN] Fatal startup error:', error);
+  } catch (err) {
+    console.error('[SERVER] Fatal failure starting Ship Asaan server:', err);
     process.exit(1);
   }
 }
