@@ -15,10 +15,24 @@ import {
 } from './permissions.js';
 import { logAudit } from './audit.js';
 
-export async function bootstrapSystem(): Promise<void> {
-  const adminEmail = (process.env.ADMIN_EMAIL || 'admin@shipasaan.com').trim().toLowerCase();
-  const adminPassword = process.env.ADMIN_PASSWORD || 'AdminPass@2026';
+/**
+ * Safely parse and sanitize admin credentials from environment variables.
+ * Strips accidental wrapping quotes (single, double, backticks) and trailing/leading spaces.
+ */
+export function parseEnvAdminCredentials(): { email: string; password: string } | null {
+  const rawEmail = process.env.ADMIN_EMAIL;
+  const rawPassword = process.env.ADMIN_PASSWORD;
 
+  if (!rawEmail || !rawPassword) return null;
+
+  const email = rawEmail.trim().replace(/^["'`]|["'`]$/g, '').trim().toLowerCase();
+  const password = rawPassword.trim().replace(/^["'`]|["'`]$/g, '').trim();
+
+  if (!email || !password) return null;
+  return { email, password };
+}
+
+export async function bootstrapSystem(): Promise<void> {
   await withTransaction(async (db) => {
     // 1. Sync System Permissions
     for (const perm of SYSTEM_PERMISSIONS) {
@@ -156,84 +170,108 @@ export async function bootstrapSystem(): Promise<void> {
       }
     }
 
-    // 4. Idempotently bootstrap initial Administrator Account
-    const { hash, salt } = hashPassword(adminPassword);
+    // 4. Idempotently bootstrap Administrator Account(s)
+    const envAdmin = parseEnvAdminCredentials();
+    const defaultFallbackEmail = 'admin@shipasaan.com';
+    const defaultFallbackPassword = 'AdminPass@2026';
 
-    let existingAdmin = db.users.find(u => u.email === adminEmail);
-    if (!existingAdmin) {
-      const newAdminId = generateId('usr_admin');
+    const targetAdminsToEnsure: Array<{ email: string; password: string; isEnv: boolean }> = [];
 
-      existingAdmin = {
-        id: newAdminId,
-        email: adminEmail,
-        password_hash: hash,
-        password_salt: salt,
-        name: 'System Administrator',
-        phone: '+92 300 0000000',
-        role_id: SYSTEM_ROLE_ADMIN,
-        account_type: 'staff',
-        status: 'active',
-        created_at: now,
-        updated_at: now
-      };
-      db.users.push(existingAdmin);
-
-      console.log(`[BOOTSTRAP] Successfully initialized root Administrator account: ${adminEmail}`);
-
-      await logAudit({
-        actorId: 'system',
-        actorEmail: 'system',
-        action: 'SYSTEM_BOOTSTRAP',
-        entityType: 'USER',
-        entityId: newAdminId,
-        metadata: {
-          email: adminEmail,
-          role: 'Administrator',
-          note: 'Root administrator account created via environment bootstrap'
-        }
-      }, db);
-    } else {
-      // Keep admin credentials consistently synced to configured password
-      existingAdmin.password_hash = hash;
-      existingAdmin.password_salt = salt;
-      existingAdmin.status = 'active';
-      existingAdmin.role_id = SYSTEM_ROLE_ADMIN;
-      existingAdmin.updated_at = now;
+    if (envAdmin) {
+      targetAdminsToEnsure.push({ ...envAdmin, isEnv: true });
     }
 
-    // Direct synchronous upsert into Supabase relational users table
+    // Only ensure default fallback admin if no administrator exists in the database at all
+    const hasAnyAdminInDb = db.users.some(u => u.role_id === SYSTEM_ROLE_ADMIN);
+    if (!hasAnyAdminInDb && !envAdmin) {
+      targetAdminsToEnsure.push({
+        email: defaultFallbackEmail,
+        password: defaultFallbackPassword,
+        isEnv: false
+      });
+    }
+
     const { getSupabaseClient } = await import('./supabase.js');
     const supabaseClient = getSupabaseClient();
-    if (supabaseClient) {
-      try {
-        await supabaseClient.from('users').upsert(existingAdmin, { onConflict: 'id' });
-      } catch (err) {
-        console.warn('[BOOTSTRAP] Warning updating user in Supabase:', err);
-      }
-    }
 
-    // 5. Ensure Admin has an employee profile
-    const adminUser = db.users.find(u => u.email === adminEmail);
-    if (adminUser && !db.employee_profiles.some(ep => ep.user_id === adminUser.id)) {
-      db.employee_profiles.push({
-        id: generateId('emp'),
-        user_id: adminUser.id,
-        designation: 'Head of Operations & Technology',
-        department: 'Executive Management',
-        joining_date: '2025-01-01',
-        cnic: '35201-1111111-1',
-        phone: adminUser.phone || '0300-0000000',
-        address: 'Ship Asaan Central Operations Tower, Gulberg III',
-        city: 'Lahore',
-        cv_uploaded: true,
-        cnic_uploaded: true,
-        bank_name: 'Meezan Bank Ltd',
-        bank_account_title: 'Ship Asaan Payroll',
-        bank_iban: 'PK36MEZN0001234567890123',
-        completeness_score: 100,
-        created_at: now,
-        updated_at: now
-      });
+    for (const adminSpec of targetAdminsToEnsure) {
+      const { hash, salt } = hashPassword(adminSpec.password);
+      let adminRecord = db.users.find(u => u.email === adminSpec.email);
+
+      if (!adminRecord) {
+        const newAdminId = generateId('usr_admin');
+        adminRecord = {
+          id: newAdminId,
+          email: adminSpec.email,
+          password_hash: hash,
+          password_salt: salt,
+          name: 'System Administrator',
+          phone: '+92 300 0000000',
+          role_id: SYSTEM_ROLE_ADMIN,
+          account_type: 'staff',
+          status: 'active',
+          created_at: now,
+          updated_at: now
+        };
+        db.users.push(adminRecord);
+
+        console.log(`[BOOTSTRAP] Successfully initialized Administrator account: ${adminSpec.email}`);
+
+        await logAudit({
+          actorId: 'system',
+          actorEmail: 'system',
+          action: 'SYSTEM_BOOTSTRAP',
+          entityType: 'USER',
+          entityId: newAdminId,
+          metadata: {
+            email: adminSpec.email,
+            role: 'Administrator',
+            note: adminSpec.isEnv
+              ? 'Administrator account provisioned from environment variables'
+              : 'Default fallback administrator account initialized'
+          }
+        }, db);
+      } else {
+        // Keep credentials synchronized with configured password
+        adminRecord.password_hash = hash;
+        adminRecord.password_salt = salt;
+        adminRecord.status = 'active';
+        adminRecord.role_id = SYSTEM_ROLE_ADMIN;
+        adminRecord.account_type = 'staff';
+        adminRecord.updated_at = now;
+      }
+
+      // Ensure Admin has an employee profile
+      if (!db.employee_profiles.some(ep => ep.user_id === adminRecord!.id)) {
+        db.employee_profiles.push({
+          id: generateId('emp'),
+          user_id: adminRecord.id,
+          designation: 'Head of Operations & Technology',
+          department: 'Executive Management',
+          joining_date: '2025-01-01',
+          cnic: '35201-1111111-1',
+          phone: adminRecord.phone || '0300-0000000',
+          address: 'Ship Asaan Central Operations Tower, Gulberg III',
+          city: 'Lahore',
+          cv_uploaded: true,
+          cnic_uploaded: true,
+          bank_name: 'Meezan Bank Ltd',
+          bank_account_title: 'Ship Asaan Payroll',
+          bank_iban: 'PK36MEZN0001234567890123',
+          completeness_score: 100,
+          created_at: now,
+          updated_at: now
+        });
+      }
+
+      // Direct synchronous upsert into Supabase relational users table
+      if (supabaseClient) {
+        try {
+          await supabaseClient.from('users').upsert(adminRecord, { onConflict: 'id' });
+        } catch (err) {
+          console.warn('[BOOTSTRAP] Warning updating user in Supabase:', err);
+        }
+      }
     }
 
     // 6. Ensure standard domain collections are initialized as clean empty stores
@@ -252,7 +290,7 @@ export async function bootstrapSystem(): Promise<void> {
     ];
     db.users = db.users.filter(u => !syntheticEmails.includes(u.email));
     db.customer_profiles = db.customer_profiles.filter(cp => cp.brand_name !== 'Al-Karam Studio' && cp.brand_name !== 'Gul Ahmed Studio');
-    db.employee_profiles = db.employee_profiles.filter(ep => ep.user_id !== adminUser?.id ? ep.cnic !== '35202-7654321-1' : true);
+    db.employee_profiles = db.employee_profiles.filter(ep => ep.cnic !== '35202-7654321-1');
     db.wallet_accounts = db.wallet_accounts.filter(w => !db.customer_profiles.some(cp => cp.id === w.customer_profile_id && (cp.brand_name === 'Al-Karam Studio' || cp.brand_name === 'Gul Ahmed Studio')));
 
     // 7. Ensure standard storage templates exist
