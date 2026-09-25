@@ -32,7 +32,10 @@ export function verifyPassword(password: string, storedHash: string, storedSalt:
   }
 }
 
-const JWT_SECRET = process.env.JWT_SECRET || 'ship_asaan_production_jwt_master_secret_2026_secure';
+const JWT_SECRET =
+  process.env.SESSION_SECRET ||
+  process.env.JWT_SECRET ||
+  'ship_asaan_production_jwt_master_secret_2026_secure';
 
 export interface TokenPayload {
   userId: string;

@@ -6,7 +6,7 @@
 
 import { Request, Response, NextFunction } from 'express';
 import { verifySignedToken } from './security.js';
-import { findUserWithPermissions } from './authDb.js';
+import { findUserWithPermissions, findUserByEmail } from './authDb.js';
 import { getDb } from './db.js';
 
 export interface AuthenticatedUser {
@@ -46,7 +46,14 @@ export async function extractAuthUser(req: Request): Promise<AuthenticatedUser |
   // 1. Primary: Verify cryptographically signed stateless token
   const tokenPayload = verifySignedToken(token);
   if (tokenPayload) {
-    const user = await findUserWithPermissions(tokenPayload.userId);
+    let user = await findUserWithPermissions(tokenPayload.userId);
+    if (!user && tokenPayload.email) {
+      const userByEmail = await findUserByEmail(tokenPayload.email);
+      if (userByEmail) {
+        user = await findUserWithPermissions(userByEmail.id);
+      }
+    }
+
     if (!user || user.status === 'suspended' || user.status === 'inactive') {
       return null;
     }
@@ -56,7 +63,7 @@ export async function extractAuthUser(req: Request): Promise<AuthenticatedUser |
       email: user.email,
       name: user.name,
       role_id: user.role_id,
-      role_name: user.role_name || 'Staff',
+      role_name: user.role_name || (user.role_id === 'role_administrator' ? 'Administrator' : 'Staff'),
       account_type: user.account_type,
       status: user.status,
       permissions: user.permissions || [],

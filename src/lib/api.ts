@@ -322,8 +322,9 @@ class ApiClient {
       ...(options.headers as Record<string, string> || {})
     };
 
-    if (this.token) {
-      headers['Authorization'] = `Bearer ${this.token}`;
+    const activeToken = this.token || (typeof localStorage !== 'undefined' ? localStorage.getItem('ship_asaan_token') : null);
+    if (activeToken) {
+      headers['Authorization'] = `Bearer ${activeToken}`;
     }
 
     const response = await fetch(endpoint, {
