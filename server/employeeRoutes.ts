@@ -4,7 +4,7 @@
  */
 
 import { Router, Request, Response } from 'express';
-import { getDb, withTransaction } from './db.js';
+import { getFreshDb, getDb, withTransaction } from './db.js';
 import { hashPassword, generateId } from './security.js';
 import { requireAuth, requirePermission } from './middleware.js';
 import { logAudit } from './audit.js';
@@ -16,7 +16,7 @@ export const employeeRouter = Router();
 
 // GET /api/employees (List all staff members)
 employeeRouter.get('/', requirePermission('employees.view'), async (req: Request, res: Response) => {
-  const db = getDb();
+  const db = await getFreshDb();
   const { department, search, status } = req.query;
 
   let employees = db.users
@@ -93,7 +93,7 @@ employeeRouter.post('/', requirePermission('employees.create'), async (req: Requ
   }
 
   const cleanEmail = email.trim().toLowerCase();
-  const db = getDb();
+  const db = await getFreshDb();
 
   if (db.users.some(u => u.email === cleanEmail)) {
     res.status(409).json({ error: 'An account with this email address already exists.' });
@@ -204,7 +204,7 @@ employeeRouter.post('/', requirePermission('employees.create'), async (req: Requ
 // GET /api/employees/:id (Single employee view)
 employeeRouter.get('/:id', requireAuth, async (req: Request, res: Response) => {
   const { id } = req.params;
-  const db = getDb();
+  const db = await getFreshDb();
 
   const user = db.users.find(u => (u.id === id || u.email === id) && u.account_type === 'staff');
   if (!user) {
@@ -243,7 +243,7 @@ employeeRouter.get('/:id', requireAuth, async (req: Request, res: Response) => {
 // PUT /api/employees/:id/profile (Update employee details and KYC documentation)
 employeeRouter.put('/:id/profile', requireAuth, async (req: Request, res: Response) => {
   const { id } = req.params;
-  const db = getDb();
+  const db = await getFreshDb();
 
   const user = db.users.find(u => u.id === id && u.account_type === 'staff');
   if (!user) {

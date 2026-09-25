@@ -20,12 +20,23 @@ import { initDatabase } from './db.js';
 
 dotenv.config();
 
-// In-memory sliding window rate limiter
+// Sliding window rate limiter with automatic stale key eviction
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+
+// Periodic cleanup every 5 minutes to prevent memory leak
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, entry] of rateLimitMap.entries()) {
+    if (now > entry.resetAt) {
+      rateLimitMap.delete(key);
+    }
+  }
+}, 5 * 60 * 1000).unref();
 
 function createRateLimiter(maxRequests: number, windowMs: number, message: string) {
   return (req: express.Request, res: express.Response, next: express.NextFunction) => {
-    const ip = req.ip || req.socket.remoteAddress || 'unknown';
+    const forwarded = req.headers['x-forwarded-for'];
+    const ip = (typeof forwarded === 'string' ? forwarded.split(',')[0].trim() : null) || req.ip || req.socket.remoteAddress || 'unknown';
     const key = `${req.baseUrl || ''}${req.path}:${ip}`;
     const now = Date.now();
     const entry = rateLimitMap.get(key);
@@ -36,7 +47,9 @@ function createRateLimiter(maxRequests: number, windowMs: number, message: strin
     }
 
     if (entry.count >= maxRequests) {
-      res.status(429).json({ error: message });
+      const retryAfterSeconds = Math.ceil((entry.resetAt - now) / 1000);
+      res.setHeader('Retry-After', retryAfterSeconds);
+      res.status(429).json({ error: message, retryAfterSeconds });
       return;
     }
 
@@ -48,28 +61,81 @@ function createRateLimiter(maxRequests: number, windowMs: number, message: strin
 export function createExpressApp() {
   const app = express();
 
+  // Trust proxy for secure headers and client IP extraction behind load balancers
+  app.set('trust proxy', 1);
+
   app.use(express.json({ limit: '10mb' }));
   app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-  // Strict CORS headers
+  // Strict CORS headers with allowlist enforcement
+  const allowedOriginsEnv = process.env.ALLOWED_ORIGINS
+    ? process.env.ALLOWED_ORIGINS.split(',').map((o) => o.trim().toLowerCase()).filter(Boolean)
+    : [];
+
   app.use((req, res, next) => {
     const origin = req.headers.origin;
-    if (origin) {
-      res.setHeader('Access-Control-Allow-Origin', origin);
-      res.setHeader('Access-Control-Allow-Credentials', 'true');
+    const host = req.headers.host;
+
+    let isAllowed = false;
+
+    if (!origin) {
+      // Same-origin, direct server-to-server, curl, or mobile app
+      isAllowed = true;
     } else {
-      res.setHeader('Access-Control-Allow-Origin', '*');
+      const lowerOrigin = origin.toLowerCase();
+
+      // 1. Check explicitly configured origins in ALLOWED_ORIGINS
+      if (allowedOriginsEnv.includes(lowerOrigin) || allowedOriginsEnv.includes('*')) {
+        isAllowed = true;
+      }
+
+      // 2. Allow matching current Host header (same domain / port)
+      if (host) {
+        if (
+          lowerOrigin === `http://${host.toLowerCase()}` ||
+          lowerOrigin === `https://${host.toLowerCase()}`
+        ) {
+          isAllowed = true;
+        }
+      }
+
+      // 3. Allow standard local development origins
+      if (/^https?:\/\/(localhost|127\.0\.0\.1)(:[0-9]+)?$/.test(lowerOrigin)) {
+        isAllowed = true;
+      }
+
+      // 4. Allow Google Cloud Run preview and production app domains (*.run.app)
+      if (/^https:\/\/[a-z0-9\-_.]+\.run\.app$/.test(lowerOrigin)) {
+        isAllowed = true;
+      }
+
+      // 5. Allow Vercel preview and production app domains (*.vercel.app)
+      if (/^https:\/\/[a-z0-9\-_.]+\.vercel\.app$/.test(lowerOrigin)) {
+        isAllowed = true;
+      }
     }
+
+    if (origin) {
+      if (isAllowed) {
+        res.setHeader('Access-Control-Allow-Origin', origin);
+        res.setHeader('Access-Control-Allow-Credentials', 'true');
+        res.setHeader('Vary', 'Origin');
+      } else {
+        if (req.method === 'OPTIONS') {
+          return res.status(403).json({ error: 'CORS forbidden: origin not authorized' });
+        }
+      }
+    }
+
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept');
+    res.setHeader('Access-Control-Max-Age', '86400');
+
     if (req.method === 'OPTIONS') {
-      return res.status(200).end();
+      return res.status(204).end();
     }
     next();
   });
-
-  // Trust proxy for secure headers
-  app.set('trust proxy', 1);
 
   // Rate-limited Auth endpoints
   const loginLimiter = createRateLimiter(15, 5 * 60 * 1000, 'Too many login attempts. Please wait 5 minutes before trying again.');

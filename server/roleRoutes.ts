@@ -4,7 +4,7 @@
  */
 
 import { Router, Request, Response } from 'express';
-import { getDb, withTransaction } from './db.js';
+import { getFreshDb, getDb, withTransaction } from './db.js';
 import { generateId } from './security.js';
 import { requirePermission } from './middleware.js';
 import { logAudit } from './audit.js';
@@ -29,8 +29,8 @@ roleRouter.get('/permissions', requirePermission('roles.view'), (_req: Request, 
 });
 
 // GET /api/roles (List all roles with permissions and user counts)
-roleRouter.get('/', requirePermission('roles.view'), (_req: Request, res: Response) => {
-  const db = getDb();
+roleRouter.get('/', requirePermission('roles.view'), async (_req: Request, res: Response) => {
+  const db = await getFreshDb();
 
   const roles = db.roles.map(role => {
     const permissions = getRolePermissions(role.id, db);
@@ -56,7 +56,7 @@ roleRouter.post('/', requirePermission('roles.manage'), async (req: Request, res
   }
 
   const cleanName = name.trim();
-  const db = getDb();
+  const db = await getFreshDb();
 
   if (db.roles.some(r => r.name.toLowerCase() === cleanName.toLowerCase())) {
     res.status(409).json({ error: 'A role with this name already exists.' });
@@ -138,7 +138,7 @@ roleRouter.put('/:id', requirePermission('roles.manage'), async (req: Request, r
   const { id } = req.params;
   const { name, description, permissions } = req.body;
 
-  const db = getDb();
+  const db = await getFreshDb();
   const existingRole = db.roles.find(r => r.id === id);
 
   if (!existingRole) {
@@ -224,7 +224,7 @@ roleRouter.put('/:id', requirePermission('roles.manage'), async (req: Request, r
 // DELETE /api/roles/:id (Delete custom role)
 roleRouter.delete('/:id', requirePermission('roles.manage'), async (req: Request, res: Response) => {
   const { id } = req.params;
-  const db = getDb();
+  const db = await getFreshDb();
   const role = db.roles.find(r => r.id === id);
 
   if (!role) {

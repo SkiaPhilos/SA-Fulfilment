@@ -6,7 +6,7 @@
 import { Router, Request, Response } from 'express';
 import { inventoryService, InventoryError, ActorContext } from './inventoryService.js';
 import { requireAuth, requirePermission } from './middleware.js';
-import { getDb } from './db.js';
+import { getFreshDb, getDb } from './db.js';
 
 export const inventoryRouter = Router();
 
@@ -15,10 +15,10 @@ inventoryRouter.use(requireAuth);
 
 function buildActorContext(req: Request): ActorContext {
   const user = req.user!;
-  const db = getDb();
-  let customerProfileId: string | null = null;
+  let customerProfileId: string | null = user.customer_profile_id || null;
 
-  if (user.account_type === 'customer') {
+  if (!customerProfileId && user.account_type === 'customer') {
+    const db = getDb();
     const profile = db.customer_profiles.find((cp) => cp.user_id === user.id);
     customerProfileId = profile ? profile.id : null;
   }
@@ -328,7 +328,7 @@ inventoryRouter.get('/ledger', async (req: Request, res: Response) => {
 inventoryRouter.post('/labels', async (req: Request, res: Response) => {
   try {
     const { unitIds, batchId, productId } = req.body;
-    const db = getDb();
+    const db = await getFreshDb();
 
     let targetUnits = db.inventory_units;
     if (batchId) {

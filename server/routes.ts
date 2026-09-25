@@ -5,7 +5,7 @@
  */
 
 import { Router, Request, Response } from 'express';
-import { getDb, withTransaction, persistDbSync } from './db.js';
+import { getFreshDb, getDb, withTransaction, persistDbSync } from './db.js';
 import {
   verifyPassword,
   createSignedToken,
@@ -231,7 +231,7 @@ authRouter.post('/reset-password', async (req: Request, res: Response) => {
   }
 
   const cleanEmail = email.trim().toLowerCase();
-  const db = getDb();
+  const db = await getFreshDb();
   const otpRecord = db.password_reset_otps.find(o => o.email === cleanEmail && !o.used);
 
   if (!otpRecord) {
@@ -292,16 +292,16 @@ authRouter.post('/reset-password', async (req: Request, res: Response) => {
 });
 
 // GET /api/system/audit-logs
-authRouter.get('/system/audit-logs', requirePermission('system.audit'), (req: Request, res: Response) => {
-  const db = getDb();
+authRouter.get('/system/audit-logs', requirePermission('system.audit'), async (req: Request, res: Response) => {
+  const db = await getFreshDb();
   // Return most recent 200 logs
   const logs = [...db.audit_logs].reverse().slice(0, 200);
   res.json({ logs });
 });
 
 // GET /api/system/overview
-authRouter.get('/system/overview', requireAuth, (req: Request, res: Response) => {
-  const db = getDb();
+authRouter.get('/system/overview', requireAuth, async (req: Request, res: Response) => {
+  const db = await getFreshDb();
   res.json({
     counts: {
       users: db.users.length,

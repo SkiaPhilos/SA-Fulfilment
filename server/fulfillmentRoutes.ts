@@ -10,10 +10,10 @@ fulfillmentRouter.use(requireAuth);
 
 function extractActor(req: Request): ActorContext {
   const user = req.user!;
-  const db = getDb();
-  let customerProfileId: string | null = null;
+  let customerProfileId: string | null = user.customer_profile_id || null;
 
-  if (user.account_type === 'customer') {
+  if (!customerProfileId && user.account_type === 'customer') {
+    const db = getDb();
     const profile = db.customer_profiles.find(cp => cp.user_id === user.id);
     customerProfileId = profile ? profile.id : null;
   }

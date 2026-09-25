@@ -4,7 +4,7 @@
  */
 
 import { Router, Request, Response } from 'express';
-import { getDb, withTransaction } from './db.js';
+import { getFreshDb, getDb, withTransaction } from './db.js';
 import { hashPassword, generateId } from './security.js';
 import { requireAuth, requirePermission } from './middleware.js';
 import { logAudit } from './audit.js';
@@ -38,7 +38,7 @@ customerRouter.post('/register', async (req: Request, res: Response) => {
   }
 
   const cleanEmail = email.trim().toLowerCase();
-  const db = getDb();
+  const db = await getFreshDb();
 
   if (db.users.some(u => u.email === cleanEmail)) {
     res.status(409).json({ error: 'An account with this email address already exists.' });
@@ -109,7 +109,7 @@ customerRouter.post('/register', async (req: Request, res: Response) => {
 
 // GET /api/customers (Staff list of customers)
 customerRouter.get('/', requirePermission('customers.view'), async (req: Request, res: Response) => {
-  const db = getDb();
+  const db = await getFreshDb();
   const { status, search } = req.query;
 
   let customers = db.customer_profiles.map((profile) => {
@@ -154,7 +154,7 @@ customerRouter.get('/', requirePermission('customers.view'), async (req: Request
 // GET /api/customers/:id (Single customer details with tenant scoping)
 customerRouter.get('/:id', requireAuth, async (req: Request, res: Response) => {
   const { id } = req.params;
-  const db = getDb();
+  const db = await getFreshDb();
   const profile = db.customer_profiles.find(cp => cp.id === id || cp.user_id === id);
 
   if (!profile) {
@@ -355,7 +355,7 @@ customerRouter.post('/:id/suspend', requirePermission('customers.approve'), asyn
 // PUT /api/customers/:id/profile (Update customer KYC / details)
 customerRouter.put('/:id/profile', requireAuth, async (req: Request, res: Response) => {
   const { id } = req.params;
-  const db = getDb();
+  const db = await getFreshDb();
   const profile = db.customer_profiles.find(cp => cp.id === id);
 
   if (!profile) {

@@ -18,6 +18,8 @@ export interface AuthenticatedUser {
   account_type: 'staff' | 'customer';
   status: string;
   permissions: string[];
+  customer_profile_id?: string | null;
+  employee_profile_id?: string | null;
 }
 
 declare global {
@@ -57,7 +59,9 @@ export async function extractAuthUser(req: Request): Promise<AuthenticatedUser |
       role_name: user.role_name || 'Staff',
       account_type: user.account_type,
       status: user.status,
-      permissions: user.permissions || []
+      permissions: user.permissions || [],
+      customer_profile_id: user.customer_profile?.id || null,
+      employee_profile_id: user.employee_profile?.id || null
     };
   }
 
@@ -76,7 +80,9 @@ export async function extractAuthUser(req: Request): Promise<AuthenticatedUser |
           role_name: user.role_name || 'Staff',
           account_type: user.account_type,
           status: user.status,
-          permissions: user.permissions || []
+          permissions: user.permissions || [],
+          customer_profile_id: user.customer_profile?.id || null,
+          employee_profile_id: user.employee_profile?.id || null
         };
       }
     }
