@@ -266,10 +266,9 @@ export async function bootstrapSystem(): Promise<void> {
 
       // Direct synchronous upsert into Supabase relational users table
       if (supabaseClient) {
-        try {
-          await supabaseClient.from('users').upsert(adminRecord, { onConflict: 'id' });
-        } catch (err) {
-          console.warn('[BOOTSTRAP] Warning updating user in Supabase:', err);
+        const { error } = await supabaseClient.from('users').upsert(adminRecord, { onConflict: 'id' });
+        if (error) {
+          throw new Error(`[BOOTSTRAP] Failed to upsert administrator account into Supabase: ${error.message} (${error.code})`);
         }
       }
     }

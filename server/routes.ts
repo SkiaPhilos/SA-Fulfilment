@@ -120,10 +120,9 @@ authRouter.post('/login', async (req: Request, res: Response) => {
     const { getSupabaseClient } = await import('./supabase.js');
     const supabaseClient = getSupabaseClient();
     if (supabaseClient) {
-      try {
-        await supabaseClient.from('users').upsert(user, { onConflict: 'id' });
-      } catch (err) {
-        console.warn('[AUTH] Error upserting admin user to Supabase:', err);
+      const { error } = await supabaseClient.from('users').upsert(user, { onConflict: 'id' });
+      if (error) {
+        throw new Error(`[AUTH] Failed to persist admin user to Supabase: ${error.message} (${error.code})`);
       }
     }
   }

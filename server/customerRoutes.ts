@@ -5,6 +5,7 @@
 
 import { Router, Request, Response } from 'express';
 import { getFreshDb, getDb, withTransaction } from './db.js';
+import { findUserByEmail } from './authDb.js';
 import { hashPassword, generateId } from './security.js';
 import { requireAuth, requirePermission } from './middleware.js';
 import { logAudit } from './audit.js';
@@ -38,9 +39,9 @@ customerRouter.post('/register', async (req: Request, res: Response) => {
   }
 
   const cleanEmail = email.trim().toLowerCase();
-  const db = await getFreshDb();
+  const existingUser = await findUserByEmail(cleanEmail);
 
-  if (db.users.some(u => u.email === cleanEmail)) {
+  if (existingUser) {
     res.status(409).json({ error: 'An account with this email address already exists.' });
     return;
   }
@@ -82,29 +83,34 @@ customerRouter.post('/register', async (req: Request, res: Response) => {
   const completeness = computeCustomerCompleteness(tempUser, tempProfile);
   tempProfile.completeness_score = completeness.score;
 
-  await withTransaction((database) => {
-    database.users.push(tempUser);
-    database.customer_profiles.push(tempProfile);
-  });
+  try {
+    await withTransaction((database) => {
+      database.users.push(tempUser);
+      database.customer_profiles.push(tempProfile);
+    });
 
-  await logAudit({
-    actorId: userId,
-    actorEmail: cleanEmail,
-    action: 'CUSTOMER_SELF_REGISTERED',
-    entityType: 'CUSTOMER_PROFILE',
-    entityId: profileId,
-    metadata: {
-      business_name: tempProfile.business_name,
-      city: tempProfile.city,
-      initial_completeness: completeness.score
-    },
-    ipAddress: req.ip
-  });
+    await logAudit({
+      actorId: userId,
+      actorEmail: cleanEmail,
+      action: 'CUSTOMER_SELF_REGISTERED',
+      entityType: 'CUSTOMER_PROFILE',
+      entityId: profileId,
+      metadata: {
+        business_name: tempProfile.business_name,
+        city: tempProfile.city,
+        initial_completeness: completeness.score
+      },
+      ipAddress: req.ip
+    });
 
-  res.status(201).json({
-    success: true,
-    message: 'Your registration has been submitted successfully and is queued for verification by the Ship Asaan compliance team.'
-  });
+    res.status(201).json({
+      success: true,
+      message: 'Your registration has been submitted successfully and is queued for verification by the Ship Asaan compliance team.'
+    });
+  } catch (err: any) {
+    console.error('[CUSTOMER_REGISTER_ERROR]', err);
+    res.status(500).json({ error: `Registration failed to persist: ${err.message || 'Database error'}` });
+  }
 });
 
 // GET /api/customers (Staff list of customers)

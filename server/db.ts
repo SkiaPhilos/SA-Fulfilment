@@ -522,20 +522,16 @@ function ensureDataDir(): void {
 
 export async function initDatabase(): Promise<DatabaseSchema> {
   if (isSupabaseConfigured()) {
-    try {
-      const cloudDb = await fetchStateFromSupabase();
-      if (cloudDb) {
-        dbCache = cloudDb;
-        ensureCollections(dbCache);
-        return dbCache;
-      }
-      console.log('[DB] Initializing fresh schema in Supabase...');
-      dbCache = createEmptySchema();
-      await syncStateToSupabase(dbCache);
+    const cloudDb = await fetchStateFromSupabase();
+    if (cloudDb) {
+      dbCache = cloudDb;
+      ensureCollections(dbCache);
       return dbCache;
-    } catch (err: any) {
-      console.warn('[DB] Cloud state initialization error:', err?.message);
     }
+    console.log('[DB] Initializing fresh schema in Supabase...');
+    dbCache = createEmptySchema();
+    await syncStateToSupabase(dbCache);
+    return dbCache;
   }
   return getDb();
 }
@@ -597,7 +593,12 @@ export function getDb(): DatabaseSchema {
     return dbCache;
   }
 
-  if (!isSupabaseConfigured() && fs.existsSync(DB_FILE)) {
+  // When Supabase is configured, never silently fall back to local disk storage
+  if (isSupabaseConfigured()) {
+    throw new Error('[DB_STATE_ERROR] Database cache uninitialized while Supabase is configured. Call initDatabase() or getFreshDb() first.');
+  }
+
+  if (fs.existsSync(DB_FILE)) {
     try {
       const raw = fs.readFileSync(DB_FILE, 'utf-8');
       dbCache = JSON.parse(raw);
@@ -616,19 +617,19 @@ export function getDb(): DatabaseSchema {
 /**
  * Fetch fresh database schema directly from Supabase relational tables.
  * Prevents warm Vercel instances from operating on stale in-memory state.
+ * Fails loudly if Supabase is configured and query fails.
  */
 export async function getFreshDb(): Promise<DatabaseSchema> {
   if (isSupabaseConfigured()) {
-    try {
-      const fresh = await fetchStateFromSupabase();
-      if (fresh) {
-        dbCache = fresh;
-        ensureCollections(dbCache);
-        return dbCache;
-      }
-    } catch (err: any) {
-      console.warn('[DB] Failed to refresh from Supabase:', err?.message);
+    const fresh = await fetchStateFromSupabase();
+    if (fresh) {
+      dbCache = fresh;
+      ensureCollections(dbCache);
+      return dbCache;
     }
+    if (dbCache) return dbCache;
+    dbCache = createEmptySchema();
+    return dbCache;
   }
   return getDb();
 }
@@ -636,7 +637,7 @@ export async function getFreshDb(): Promise<DatabaseSchema> {
 export function persistDbSync(): void {
   if (!dbCache) return;
 
-  // If local dev without Supabase, try writing to disk safely
+  // Local JSON file writes are ONLY permitted when Supabase is NOT configured at all
   if (!isSupabaseConfigured()) {
     try {
       ensureDataDir();
@@ -647,19 +648,13 @@ export function persistDbSync(): void {
       // Ignore filesystem write errors in serverless environments
     }
   }
-
-  // Authoritative sync to Supabase
-  if (isSupabaseConfigured()) {
-    syncStateToSupabase(dbCache).catch((err) => {
-      console.warn('[DB] Supabase async sync warning:', err);
-    });
-  }
 }
 
 /**
  * Concurrency-safe atomic transaction runner.
  * Always fetches fresh state from PostgreSQL relational tables before mutation
  * to ensure multi-instance cross-process consistency.
+ * FAILS LOUDLY if Supabase write fails.
  */
 export async function withTransaction<T>(fn: (db: DatabaseSchema) => Promise<T> | T): Promise<T> {
   let result: T;
@@ -667,14 +662,10 @@ export async function withTransaction<T>(fn: (db: DatabaseSchema) => Promise<T> 
   const currentOp = writeQueue.then(async () => {
     // 1. Fetch latest PostgreSQL state across serverless instances
     if (isSupabaseConfigured()) {
-      try {
-        const fresh = await fetchStateFromSupabase();
-        if (fresh) {
-          dbCache = fresh;
-          ensureCollections(dbCache);
-        }
-      } catch (err: any) {
-        console.warn('[DB] Failed to pre-fetch fresh state in transaction:', err?.message);
+      const fresh = await fetchStateFromSupabase();
+      if (fresh) {
+        dbCache = fresh;
+        ensureCollections(dbCache);
       }
     }
 

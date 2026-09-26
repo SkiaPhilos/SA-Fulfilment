@@ -101,7 +101,12 @@ export default function App() {
     <AppLayout
       user={user}
       currentTab={currentTab}
-      onSelectTab={(tab) => setCurrentTab(tab)}
+      onSelectTab={(tab) => {
+        if (user.account_type === 'customer' && (tab === 'foundation' || tab === 'audit')) {
+          return;
+        }
+        setCurrentTab(tab);
+      }}
       onLogout={handleLogout}
     >
       {currentTab === 'wallet' && (
@@ -116,8 +121,8 @@ export default function App() {
       {currentTab === 'customers' && <CustomerListView user={user} />}
       {currentTab === 'employees' && <EmployeeListView user={user} />}
       {currentTab === 'roles' && <RoleManagementView user={user} />}
-      {currentTab === 'foundation' && <SystemFoundationView user={user} />}
-      {currentTab === 'audit' && <SystemFoundationView user={user} />}
+      {user.account_type !== 'customer' && currentTab === 'foundation' && <SystemFoundationView user={user} />}
+      {user.account_type !== 'customer' && currentTab === 'audit' && <SystemFoundationView user={user} />}
     </AppLayout>
   );
 }

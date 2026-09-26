@@ -605,7 +605,7 @@ export const FulfillmentOrderListView: React.FC<FulfillmentOrderListViewProps> =
               onClick={() => setSelectedOrderIds([])}
               className="text-gray-700 border-gray-300 bg-white"
             >
-              Deselect All
+              Deselect All Orders
             </Button>
 
             {/* If Placed orders are selected */}

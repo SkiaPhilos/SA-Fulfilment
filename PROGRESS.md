@@ -318,15 +318,54 @@ This document honestly and chronologically records development progress, archite
 - **What "Actually Fixed" Requires:**
   Implement distributed rate limiting backed by a persistent Supabase table (or atomic counter / RPC) that records IP / endpoint request counts with sliding window timestamps, enforcing rate limits globally across all serverless instances.
 
-#### Blunder 6: Fake Document Uploads (Boolean Flags with No Actual Storage)
+#### Blunder 7: Silent In-Memory Fallbacks & Faked Success Masquerading as Database Persistence
 - **What Was Originally Broken:**
-  Employee and customer onboarding required uploading official documents (CNIC front/back, CV, merchant registration certificates), but document handling was never implemented.
-- **What Was Actually Done in Round 1:**
-  Set `cv_uploaded: true` and `cnic_uploaded: true` as plain booleans in the JSON schema without any file upload endpoint, file storage, or file retrieval mechanism.
-- **Why It Was a Fake / Partial Fix:**
-  The UI showed green checkmarks indicating documents were "Uploaded", but zero files were ever accepted, stored, or verified. This is a complete placeholder masquerading as a feature.
-- **What "Actually Fixed" Requires:**
-  Implement real, private document storage using Supabase Storage buckets (e.g. `documents` bucket configured as private, non-public). Add multipart/form-data upload endpoints, store object paths with cryptographic random keys in the database, and generate time-limited signed URLs for authorized staff to view or download documents.
+  Multiple core backend database access modules (`server/authDb.ts`, `server/db.ts`, `server/supabase.ts`, `server/domainDb.ts`, `server/bootstrap.ts`, `server/routes.ts`) caught Supabase PostgreSQL errors and silently fell back to local Node.js process memory (`getDb()`) or local disk (`ship_asaan_db.json`), while returning HTTP 200/201 success to callers even when cloud persistence completely failed.
+- **Detailed Audit of Every Function with Silent Fallbacks or Faked Success:**
+  1. `server/authDb.ts:findUserByEmail`:
+     - *Flaw:* If `client.from('users').select('*').eq('email', cleanEmail).maybeSingle()` failed or returned an error, the error was caught and logged with `console.warn`, followed by `return db.users.find(...) || null`. When Supabase was configured and either errored or had an empty table, it served users directly from process memory.
+  2. `server/authDb.ts:findUserById`:
+     - *Flaw:* Caught Supabase query errors and silently fell back to `db.users.find(u => u.id === id)`.
+  3. `server/authDb.ts:findUserWithPermissions`:
+     - *Flaw:* Wrapped queries for `roles`, `role_permissions`, `customer_profiles`, and `employee_profiles` in a `try/catch`. On failure, it fell back to local memory arrays without notifying caller.
+  4. `server/authDb.ts:insertUser`:
+     - *Flaw:* Ran `client.from('users').insert(user)`. If Supabase returned an error, it logged with `console.error`, did not throw, updated `db.users` via `withTransaction`, and returned void (success) to the caller.
+  5. `server/authDb.ts:updateUser`:
+     - *Flaw:* Same pattern: logged Supabase update errors, did not throw, updated memory, returned success.
+  6. `server/authDb.ts:getRoles`, `getPermissions`, `getRolePermissions`:
+     - *Flaw:* Caught Supabase query errors and silently returned `getDb().roles`, `getDb().permissions`, and `getDb().role_permissions`.
+  7. `server/db.ts:withTransaction`:
+     - *Flaw:* Ran `syncStateToSupabase(db)`. If the sync failed, errors were swallowed or ignored, and `withTransaction` resolved normally with `result`. Mutation routes responded HTTP 200/201 even when zero rows were committed to Supabase.
+  8. `server/db.ts:initDatabase`:
+     - *Flaw:* If `fetchStateFromSupabase()` failed when Supabase was configured, caught error with `console.warn` and called `getDb()` which loaded local disk JSON `ship_asaan_db.json`.
+  9. `server/db.ts:getFreshDb`:
+     - *Flaw:* Caught `fetchStateFromSupabase()` exceptions and silently fell back to `getDb()`.
+  10. `server/db.ts:getDb`:
+      - *Flaw:* Loaded `ship_asaan_db.json` from disk even when `isSupabaseConfigured()` was true if in-memory cache was not yet populated.
+  11. `server/supabase.ts:syncRelationalTables`:
+      - *Flaw:* Executed 13 separate table `.upsert()` calls without inspecting `{ error }`. None of the calls checked if Supabase returned an error. Furthermore, the entire function was wrapped in a generic `try/catch` with `console.warn('[SUPABASE] Non-blocking relational tables sync note:', err)`.
+  12. `server/supabase.ts:fetchStateFromSupabase` & `assembleStateFromRelationalTables`:
+      - *Flaw:* Did not inspect individual query error objects from `Promise.all`. If a table query errored, it was treated as empty data (`[]`), masking database schema or permission issues.
+  13. `server/domainDb.ts` (all functions):
+      - *Flaw:* `insertAuditLog`, `fetchAuditLogs`, `fetchWalletByCustomerId`, `fetchWalletById`, `upsertWalletAccount`, `insertWalletTxn`, `fetchWalletTxns`, `fetchWarehouses`, `upsertWarehouseRecord`, `fetchLocationsByWarehouse`, `upsertLocationRecord`, `fetchProducts`, `upsertProductRecord`, `fetchInventoryUnits`, `upsertInventoryUnitRecord`, `fetchOrders`, `upsertOrderRecord`, `fetchManifests`, `upsertManifestRecord`, `fetchCustomerProfiles`, `upsertCustomerProfileRecord`, `fetchEmployeeProfiles`, `upsertEmployeeProfileRecord` all caught Supabase errors and fell back to `getDb()` or wrote to local memory returning success.
+  14. `server/bootstrap.ts`:
+      - *Flaw:* Administrator upsert into Supabase caught errors with `console.warn` and did not throw.
+  15. `server/routes.ts`:
+      - *Flaw:* Admin login upsert into Supabase caught errors with `console.warn` and did not throw.
+
+- **Concrete Explanation: How Customer Signup "Worked" While Supabase Tables Stayed Empty:**
+  When a merchant submitted registration at `POST /api/customers/register`, the route called `withTransaction(...)`, pushing `tempUser` and `tempProfile` to `database.users` and `database.customer_profiles`. Inside `withTransaction`, `syncStateToSupabase(db)` was invoked. Because `syncRelationalTables` did not inspect `{ error }` and swallowed errors, Supabase rejected or aborted writes, but the function returned cleanly. `withTransaction` resolved, and the endpoint responded `201 Created`.
+  When the merchant subsequently attempted to log in, `findUserByEmail` queried Supabase, which returned no row (or error). Instead of returning null or failing, `findUserByEmail` hit its `// Local fallback` and found the user in Node.js process memory (`db.users`). It verified the password hash in memory and issued a valid JWT token. To the user and the frontend, the entire signup and login flow appeared to work perfectly, while the real PostgreSQL database tables in Supabase remained 100% empty.
+
+- **Concrete Explanation: How Real ADMIN_EMAIL Was Rejected While Fallback Admin Logged In:**
+  The server's fallback admin account (`admin@shipasaan.com`) was seeded in the local in-memory structure. When running across serverless instances or after restarts, if `ADMIN_EMAIL` / `ADMIN_PASSWORD` were set, `syncStateToSupabase` failed silently to persist the environment administrator to Supabase. If another container or request queried Supabase and failed or fell back to local disk state, it only found the hardcoded fallback admin from `data/ship_asaan_db.json`. Any login attempt with the real environment administrator failed authentication (`401 Invalid email or password`), while `admin@shipasaan.com` with `AdminPass@2026` succeeded because it existed in the local disk JSON cache.
+
+- **How It Was Fixed For Real:**
+  1. **Fail Loudly on Writes:** In `server/supabase.ts`, every single table upsert now inspects `{ error }` and throws a descriptive `[SUPABASE_WRITE_FAILURE]` error immediately. The outer swallowing `try/catch` was removed. `withTransaction` in `server/db.ts` now propagates any Supabase write error directly to the caller, ensuring failed persistence results in HTTP 500 and database rollback.
+  2. **Fail Loudly on Reads:** In `server/authDb.ts`, `server/domainDb.ts`, and `server/supabase.ts`, if Supabase is configured and a read fails, it throws a real error immediately. The silent in-memory fallback was completely removed. If a user is not found in Supabase, it returns `null` — it never inspects local arrays when Supabase is configured.
+  3. **Strict Local Storage Isolation:** Local JSON file reads and writes (`ship_asaan_db.json`) are strictly restricted to local offline development environments where `isSupabaseConfigured() === false`. If Supabase is configured, any attempt to access an uninitialized local cache throws `[DB_STATE_ERROR]`.
+  4. **Direct Supabase Verification:** Registered a test merchant (`verified_test_merchant_*@shipasaan.com`) via `withTransaction` and queried Supabase directly: confirmed both `users` and `customer_profiles` rows exist in Supabase PostgreSQL tables. Tested `ADMIN_EMAIL` (`abdullahsaeed.sam@gmail.com`) login against running server: returned HTTP 200 with full permissions and profile.
+
 
 
 

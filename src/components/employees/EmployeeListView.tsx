@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { EmployeeItem, UserSession, api } from '../../lib/api';
+import { formatRoleName } from '../../lib/displayFormatters';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../ui/Card';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../ui/Table';
 import { Button } from '../ui/Button';
@@ -72,7 +73,7 @@ export function EmployeeListView({ user }: EmployeeListViewProps) {
   });
 
   return (
-    <div className="space-y-6 max-w-6xl pb-10">
+    <div className="space-y-6 w-full pb-10">
       {/* Title & Actions */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-200">
         <div>
@@ -205,7 +206,7 @@ export function EmployeeListView({ user }: EmployeeListViewProps) {
 
                     <TableCell>
                       <Badge variant={emp.user.role_id === 'role_administrator' ? 'warning' : 'neutral'}>
-                        {emp.user.role_name}
+                        {formatRoleName(emp.user.role_id, emp.user.role_name)}
                       </Badge>
                     </TableCell>
 

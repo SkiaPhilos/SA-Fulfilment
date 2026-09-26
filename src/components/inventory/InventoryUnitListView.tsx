@@ -274,7 +274,7 @@ export const InventoryUnitListView: React.FC<InventoryUnitListViewProps> = ({ us
               onClick={() => setSelectedUnitIds([])}
               className="text-slate-700 border-slate-300 bg-white"
             >
-              Deselect All
+              Deselect All Units
             </Button>
             <Button
               variant="primary"

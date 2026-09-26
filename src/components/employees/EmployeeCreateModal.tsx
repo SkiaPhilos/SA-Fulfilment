@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api, RoleItem, EmployeeItem } from '../../lib/api';
+import { formatRoleName } from '../../lib/displayFormatters';
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
@@ -149,7 +150,7 @@ export function EmployeeCreateModal({ isOpen, onClose, onSuccess }: EmployeeCrea
                 >
                   {roles.map(r => (
                     <option key={r.id} value={r.id}>
-                      {r.name} ({r.permissions.length} permissions)
+                      {formatRoleName(r.id, r.name)} ({r.permissions.length} permissions)
                     </option>
                   ))}
                 </select>

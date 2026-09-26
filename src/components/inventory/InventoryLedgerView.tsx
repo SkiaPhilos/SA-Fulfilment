@@ -49,19 +49,19 @@ export const InventoryLedgerView: React.FC<InventoryLedgerViewProps> = ({ user }
   const getTypeBadge = (type: InventoryTransaction['type']) => {
     switch (type) {
       case 'RECEIVE':
-        return <Badge variant="info">RECEIVE</Badge>;
+        return <Badge variant="info">Stock Received</Badge>;
       case 'STOCK':
-        return <Badge variant="success">STOCK</Badge>;
+        return <Badge variant="success">Putaway Stocked</Badge>;
       case 'MOVE':
-        return <Badge variant="warning">MOVE</Badge>;
+        return <Badge variant="warning">Location Moved</Badge>;
       case 'DAMAGE':
-        return <Badge variant="danger">DAMAGE</Badge>;
+        return <Badge variant="danger">Marked Damaged</Badge>;
       case 'ADJUST':
-        return <Badge variant="neutral">ADJUST</Badge>;
+        return <Badge variant="neutral">Stock Adjusted</Badge>;
       case 'PICK':
-        return <Badge variant="info">PICK</Badge>;
+        return <Badge variant="info">Item Picked</Badge>;
       case 'PACK':
-        return <Badge variant="neutral">PACK</Badge>;
+        return <Badge variant="neutral">Order Packed</Badge>;
       default:
         return <Badge variant="neutral">{type}</Badge>;
     }

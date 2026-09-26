@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { RoleItem, PermissionDefinition, UserSession, api } from '../../lib/api';
+import { formatPermissionLabel, formatRoleName } from '../../lib/displayFormatters';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { Badge } from '../ui/Badge';
@@ -156,7 +157,7 @@ export function RoleManagementView({ user }: RoleManagementViewProps) {
   };
 
   return (
-    <div className="space-y-6 max-w-6xl pb-10">
+    <div className="space-y-6 w-full pb-10">
       {/* Title & Actions */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-200">
         <div>
@@ -289,7 +290,7 @@ export function RoleManagementView({ user }: RoleManagementViewProps) {
                 <div className="flex items-center justify-between text-xs bg-slate-50 p-3 rounded-lg border border-slate-200">
                   <div className="flex items-center gap-2 text-slate-700">
                     <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                    <span>Role Identifier: <span className="font-mono font-medium text-slate-900">{selectedRole.id}</span></span>
+                    <span>Role Type: <span className="font-semibold text-slate-900">{formatRoleName(selectedRole.id, selectedRole.name)}</span></span>
                   </div>
                   <div className="text-slate-500">
                     Assigned: <strong className="text-slate-800">{selectedRole.assignedUserCount} active personnel</strong>
@@ -334,7 +335,7 @@ export function RoleManagementView({ user }: RoleManagementViewProps) {
                                   <Lock className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
                                 )}
                                 <div>
-                                  <span className="font-semibold block">{p.code}</span>
+                                  <span className="font-semibold block">{formatPermissionLabel(p.code)}</span>
                                   <span className="text-[11px] text-slate-500 mt-0.5 block leading-tight">
                                     {p.description}
                                   </span>
@@ -429,9 +430,9 @@ export function RoleManagementView({ user }: RoleManagementViewProps) {
                           setSelectedPerms(Array.from(new Set([...selectedPerms, ...moduleCodes])));
                         }
                       }}
-                      className="text-[11px] text-emerald-700 hover:text-emerald-800 font-medium"
+                      className="text-[11px] text-emerald-700 hover:text-emerald-800 font-semibold"
                     >
-                      Toggle All in Module
+                      {`Toggle All ${moduleName} Permissions`}
                     </button>
                   </div>
 
@@ -459,7 +460,7 @@ export function RoleManagementView({ user }: RoleManagementViewProps) {
                             className="mt-0.5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
                           />
                           <div>
-                            <span className="font-semibold text-slate-900 block">{p.code}</span>
+                            <span className="font-semibold text-slate-900 block">{formatPermissionLabel(p.code)}</span>
                             <span className="text-[11px] text-slate-500 block leading-tight mt-0.5">
                               {p.description}
                             </span>

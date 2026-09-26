@@ -1,5 +1,11 @@
 import { useState, useEffect } from 'react';
 import { api, UserSession, SystemOverview, AuditLogItem } from '../lib/api';
+import {
+  formatPermissionLabel,
+  formatActionLabel,
+  formatEntityLabel,
+  formatRoleName
+} from '../lib/displayFormatters';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from './ui/Card';
 import { Button } from './ui/Button';
 import { Badge } from './ui/Badge';
@@ -50,7 +56,7 @@ export function SystemFoundationView({ user }: SystemFoundationViewProps) {
   }, []);
 
   return (
-    <div className="space-y-6 max-w-6xl pb-10">
+    <div className="space-y-6 w-full pb-10">
       {/* Top Header & Sync Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-200">
         <div>
@@ -60,9 +66,6 @@ export function SystemFoundationView({ user }: SystemFoundationViewProps) {
             </h1>
             <Badge variant="success" dot>Operational</Badge>
           </div>
-          <p className="text-xs text-slate-500 mt-1">
-            Authoritative relational models, RBAC privilege containment, and cryptographically verified sessions.
-          </p>
         </div>
 
         <div className="flex items-center gap-2">
@@ -175,10 +178,10 @@ export function SystemFoundationView({ user }: SystemFoundationViewProps) {
                 </span>
                 <div className="p-3 bg-slate-50 rounded-md border border-slate-200">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold text-slate-900">{user.role_name}</span>
+                    <span className="text-xs font-semibold text-slate-900">{formatRoleName(user.role_id, user.role_name)}</span>
                     <Badge variant="success">Active</Badge>
                   </div>
-                  <div className="text-[10px] text-slate-400 font-mono mt-1">Role ID: {user.role_id}</div>
+                  <div className="text-[10px] text-slate-500 mt-1 font-medium">{formatRoleName(user.role_id, user.role_name)}</div>
                 </div>
               </div>
 
@@ -191,10 +194,10 @@ export function SystemFoundationView({ user }: SystemFoundationViewProps) {
                     {user.permissions.length} granted
                   </span>
                 </div>
-                <div className="max-h-48 overflow-y-auto space-y-1 pr-1 border border-slate-200 rounded-md p-2 bg-slate-50/50">
+                <div className="max-h-56 overflow-y-auto space-y-1.5 pr-1 border border-slate-200 rounded-md p-2 bg-slate-50/50">
                   {user.permissions.map((p) => (
-                    <div key={p} className="text-[11px] font-mono text-slate-700 bg-white px-2 py-1 rounded border border-slate-200/80">
-                      {p}
+                    <div key={p} className="text-xs text-slate-800 bg-white px-2.5 py-1.5 rounded border border-slate-200/80 font-medium">
+                      {formatPermissionLabel(p)}
                     </div>
                   ))}
                 </div>
@@ -246,14 +249,14 @@ export function SystemFoundationView({ user }: SystemFoundationViewProps) {
                           })}
                         </TableCell>
                         <TableCell>
-                          <Badge variant="neutral" className="font-mono text-[10px]">
-                            {log.action}
+                          <Badge variant="neutral" className="text-xs font-semibold">
+                            {formatActionLabel(log.action)}
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          <span className="font-medium text-slate-800">{log.entity_type}</span>
+                          <span className="font-medium text-slate-800 text-xs">{formatEntityLabel(log.entity_type)}</span>
                           {log.entity_id && (
-                            <span className="block font-mono text-[10px] text-slate-400 mt-0.5 truncate max-w-[120px]">
+                            <span className="block font-mono text-[10px] text-slate-400 mt-0.5 truncate max-w-[140px]">
                               {log.entity_id}
                             </span>
                           )}

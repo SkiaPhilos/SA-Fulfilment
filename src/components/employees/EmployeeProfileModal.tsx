@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { EmployeeItem, RoleItem, api } from '../../lib/api';
+import { formatRoleName } from '../../lib/displayFormatters';
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
 import { Badge } from '../ui/Badge';
@@ -160,7 +161,7 @@ export function EmployeeProfileModal({
             <Badge variant={employee.user.status === 'active' ? 'success' : 'neutral'} dot>
               {employee.user.status === 'active' ? 'Active Staff' : 'Inactive'}
             </Badge>
-            <Badge variant="neutral">{employee.user.role_name}</Badge>
+            <Badge variant="neutral">{formatRoleName(employee.user.role_id, employee.user.role_name)}</Badge>
             <span className="text-xs text-slate-500 font-mono">
               Score: {employee.profile?.completeness_score || 0}% Complete
             </span>
@@ -360,7 +361,7 @@ export function EmployeeProfileModal({
                 >
                   {roles.map(r => (
                     <option key={r.id} value={r.id}>
-                      {r.name} ({r.permissions.length} perms)
+                      {formatRoleName(r.id, r.name)} ({r.permissions.length} permissions)
                     </option>
                   ))}
                 </select>

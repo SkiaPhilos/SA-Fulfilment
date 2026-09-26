@@ -213,7 +213,7 @@ export const CreateManifestModal: React.FC<CreateManifestModalProps> = ({
                 onClick={toggleAll}
                 className="text-xs text-emerald-700 font-semibold hover:underline"
               >
-                {selectedOrderIds.length === packedOrders.length ? 'Deselect All' : 'Select All'}
+                {selectedOrderIds.length === packedOrders.length ? 'Deselect All Orders' : 'Select All Orders'}
               </button>
             </div>
 
